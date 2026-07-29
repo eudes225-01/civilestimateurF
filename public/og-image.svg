@@ -1,0 +1,75 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e2a78" />
+      <stop offset="0.45" stop-color="#3a2a9e" />
+      <stop offset="0.72" stop-color="#c0391b" />
+      <stop offset="0.88" stop-color="#e0532f" />
+      <stop offset="1" stop-color="#f6a823" />
+    </linearGradient>
+    <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e2a78" />
+      <stop offset="0.52" stop-color="#e0532f" />
+      <stop offset="1" stop-color="#f6a823" />
+    </linearGradient>
+    <pattern id="grid" width="46" height="46" patternUnits="userSpaceOnUse">
+      <path d="M0 0H46M0 0V46" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1" />
+    </pattern>
+  </defs>
+
+  <!-- Fond -->
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+  <rect width="1200" height="630" fill="url(#grid)" />
+
+  <!-- Formes flottantes décoratives -->
+  <rect x="970" y="80" width="140" height="140" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="3" transform="rotate(12 1040 150)" />
+  <circle cx="120" cy="430" r="80" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="3" />
+  <rect x="1000" y="430" width="70" height="70" rx="14" fill="#f6a823" fill-opacity="0.22" />
+  <rect x="60" y="90" width="48" height="48" rx="10" fill="#ffffff" fill-opacity="0.10" transform="rotate(45 84 114)" />
+
+  <!-- Logo mark (agrandi, repris de Logo.jsx) -->
+  <g transform="translate(90,210)">
+    <rect x="0" y="0" width="160" height="160" rx="40" fill="url(#logoGrad)" />
+    <rect x="0" y="0" width="160" height="160" rx="40" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="4" />
+    <path d="M38 78 L80 40 L122 78" fill="none" stroke="#fff" stroke-width="10" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="M50 76 V116 H110 V76" fill="none" stroke="#fff" stroke-width="10" stroke-linejoin="round" stroke-linecap="round" />
+    <rect x="69" y="92" width="22" height="26" rx="3" fill="#ffffff" fill-opacity="0.95" />
+    <g stroke="#fff" stroke-opacity="0.92" stroke-width="6" stroke-linecap="round">
+      <path d="M44 132 H116" />
+      <path d="M44 126 V138 M116 126 V138" />
+    </g>
+  </g>
+
+  <!-- Titre / marque -->
+  <text x="300" y="270" font-family="Space Grotesk, Inter, sans-serif" font-weight="700" font-size="68" fill="#ffffff">
+    Civil<tspan fill="#f6a823">Estimator</tspan>
+  </text>
+  <text x="300" y="320" font-family="Inter, sans-serif" font-weight="600" font-size="28" fill="#ffffff" fill-opacity="0.92">
+    Métré &amp; Devis Quantitatif Estimatif — Bénin
+  </text>
+
+  <!-- Accroche -->
+  <text x="300" y="385" font-family="Inter, sans-serif" font-weight="400" font-size="24" fill="#ffffff" fill-opacity="0.88">
+    Du relevé sur plan au devis estimatif, en francs CFA.
+  </text>
+  <text x="300" y="420" font-family="Inter, sans-serif" font-weight="400" font-size="24" fill="#ffffff" fill-opacity="0.88">
+    Quantités, prix unitaires et sous-détails calculés automatiquement.
+  </text>
+
+  <!-- Bandeau bas : badges -->
+  <g transform="translate(300,470)">
+    <rect x="0" y="0" width="220" height="46" rx="23" fill="#ffffff" fill-opacity="0.16" />
+    <text x="110" y="30" font-family="Inter, sans-serif" font-weight="600" font-size="20" fill="#ffffff" text-anchor="middle">FCFA · UEMOA</text>
+  </g>
+  <g transform="translate(536,470)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#ffffff" fill-opacity="0.16" />
+    <text x="120" y="30" font-family="Inter, sans-serif" font-weight="600" font-size="20" fill="#ffffff" text-anchor="middle">Base RPR 26.2</text>
+  </g>
+  <g transform="translate(792,470)">
+    <rect x="0" y="0" width="190" height="46" rx="23" fill="#ffffff" fill-opacity="0.16" />
+    <text x="95" y="30" font-family="Inter, sans-serif" font-weight="600" font-size="20" fill="#ffffff" text-anchor="middle">100 % gratuit</text>
+  </g>
+
+  <!-- Vague de séparation en bas -->
+  <path d="M0,602 C240,624 480,580 720,590 C960,600 1200,624 1200,604 L1200,630 L0,630 Z" fill="#fdf6ee" />
+</svg>
