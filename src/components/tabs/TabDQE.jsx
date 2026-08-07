@@ -5,8 +5,7 @@
 import React, { useMemo, useState } from 'react'
 import { AlertTriangle, AlertOctagon, Info, ChevronDown, ListTree } from 'lucide-react'
 import { Card, SectionTitle, Badge } from '../ui/index.jsx'
-import { buildDQE } from '../../lib/metre.js'
-import { buildSousDetail } from '../../lib/sousDetail.js'
+import { buildDQE, buildSousDetail } from 'civilestimateur-engine'
 import { fmtCFA, fmtNum } from '../../lib/format.js'
 
 const ALERTE_STYLE = {

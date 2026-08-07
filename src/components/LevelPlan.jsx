@@ -6,7 +6,7 @@ import React, { useRef, useState } from 'react'
 import { UploadCloud, Loader, Check, X, AlertTriangle, ScanLine, ChevronDown } from 'lucide-react'
 import { Button } from './ui/index.jsx'
 import { analyzePlan, normPiece, normMur, normPoteau, PLAN_MAX_MB } from '../lib/planreader.js'
-import { TYPES_MUR } from '../lib/metre.js'
+import { TYPES_MUR } from 'civilestimateur-engine'
 import PlanHelp from './PlanHelp.jsx'
 
 export default function LevelPlan({ levelName, onApply }) {

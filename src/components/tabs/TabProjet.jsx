@@ -1,8 +1,8 @@
 // src/components/tabs/TabProjet.jsx
-import { MapPin, Lock, ArrowDown, Home, User, Phone, FileText } from 'lucide-react'
+import { MapPin, Lock, ArrowDown, Home, User, Phone, FileText, Layers, AlertTriangle } from 'lucide-react'
 import React from 'react'
-import { Card, Input, Label, Select, SectionTitle, Badge } from '../ui/index.jsx'
-import { FONDATIONS } from '../../data/fondations.js'
+import { Card, Input, Label, Select, SectionTitle, Badge, Hint } from '../ui/index.jsx'
+import { FONDATIONS, recommanderFondationProjet } from 'civilestimateur-engine'
 import PlanAnalyzer from '../PlanAnalyzer.jsx'
 
 const VILLES = Object.keys(FONDATIONS.villes)
@@ -21,6 +21,21 @@ export default function TabProjet({ proj, setProj, levels, setLevels, params, se
   const set = (k, v) => setProj({ ...proj, [k]: v })
   const zone = proj.ville && FONDATIONS.villes[proj.ville]
     ? FONDATIONS.zones[FONDATIONS.villes[proj.ville]]
+    : null
+
+  // Recommandation géotechnique Lot A — purement informative : ne modifie
+  // jamais levels/params à la place de l'utilisateur. La contrainte
+  // admissible reste éditable (params.fondation.contrainteAdmissible),
+  // conformément au document Lot A (§2.2 : confirmer/ajuster, pas figer).
+  const setFondation = (k, v) => setParams({ ...params, fondation: { ...params.fondation, [k]: v } })
+  const reco = zone
+    ? recommanderFondationProjet({
+        ville: proj.ville,
+        systeme: params.systeme,
+        contrainteOverride: params.fondation?.contrainteAdmissible,
+        contexteSolOverride: params.fondation?.contexteSol,
+        nbNiveaux: levels.length,
+      })
     : null
 
   return (
@@ -128,6 +143,57 @@ export default function TabProjet({ proj, setProj, levels, setLevels, params, se
                   <span aria-hidden>⚠</span><span>{zone.alerte}</span>
                 </div>
               )}
+
+              {/* ── Lot A : contrainte admissible éditable + recommandation ── */}
+              {reco?.recommandation && (
+                <div className="rounded-xl2 border border-indigo/20 bg-indigo-soft/40 px-3.5 py-3 grid gap-3">
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-[12px] uppercase tracking-wide text-indigo">
+                    <Layers size={13} /> Recommandation géotechnique (Lot A)
+                  </span>
+
+                  <div>
+                    <Label className="mb-1">
+                      Contrainte admissible du sol (bar)
+                      {reco.contrainte.source === 'zone' && (
+                        <span className="ml-1.5 font-normal normal-case text-muted">— valeur par défaut de la zone, modifiable</span>
+                      )}
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" step="0.05" min="0" className="max-w-[140px]"
+                        value={params.fondation?.contrainteAdmissible ?? ''}
+                        placeholder={String(reco.contrainte.valeur)}
+                        onChange={(e) => setFondation('contrainteAdmissible', e.target.value === '' ? null : +e.target.value)}
+                      />
+                      <Badge variant={reco.recommandation.classification === 'faible' ? 'lat' : reco.recommandation.classification === 'moyenne' ? 'sol' : 'ok'}>
+                        Portance {reco.recommandation.classification}
+                      </Badge>
+                    </div>
+                    {zone.contrainteAdmissible && (
+                      <Hint>Fourchette indicative de la zone : {zone.contrainteAdmissible.min}–{zone.contrainteAdmissible.max} bar.</Hint>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className="font-semibold text-muted text-[12px] uppercase tracking-wide">Fondation recommandée</span>
+                    <p className="mt-0.5">{reco.recommandation.justification}</p>
+                  </div>
+
+                  {reco.horsPerimetre && (
+                    <div className="bg-laterite-soft border border-laterite/30 rounded-[10px] px-3.5 py-2.5 text-laterite-deep text-[13px] flex gap-2">
+                      <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                      <span>Portance faible sur un bâtiment de plus de R+2 : hors périmètre de calcul automatique — des fondations profondes (pieux) sont probablement nécessaires. Cas à faire étudier par un bureau de sol.</span>
+                    </div>
+                  )}
+
+                  {reco.basFondPossible && (
+                    <p className="text-[12px] text-muted">
+                      Si le site est localisé en bas-fond ou vallée, la contrainte admissible réelle peut être bien inférieure à la valeur par défaut ci-dessus — ajustez-la si besoin.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <p className="text-[12px] text-muted border-t border-line pt-3 mt-1">
                 {FONDATIONS.avertissement}
               </p>

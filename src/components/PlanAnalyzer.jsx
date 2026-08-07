@@ -8,7 +8,7 @@ import React, { useRef, useState } from 'react'
 import { UploadCloud, FileText, Image as ImageIcon, ScanLine, Loader, Check, X, AlertTriangle, Wand2, Trash2, ClipboardCheck } from 'lucide-react'
 import { Card, Button, SectionTitle, Badge, Input, Select } from './ui/index.jsx'
 import { analyzePlan, extractionToProject, PLAN_MAX_MB } from '../lib/planreader.js'
-import { TYPES_MUR } from '../lib/metre.js'
+import { TYPES_MUR } from 'civilestimateur-engine'
 import PlanHelp from './PlanHelp.jsx'
 
 const lowCls = 'bg-soleil-soft/70'   // surlignage confiance basse

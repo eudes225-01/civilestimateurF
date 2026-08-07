@@ -9,8 +9,7 @@ import TabNiveaux from './components/tabs/TabNiveaux.jsx'
 import TabPrix from './components/tabs/TabPrix.jsx'
 import TabDQE from './components/tabs/TabDQE.jsx'
 import TabExport from './components/tabs/TabExport.jsx'
-import { PRIX } from './data/prix.js'
-import { metrerProjet, PARAMS_DEFAUT, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT } from './lib/metre.js'
+import { metrerProjet, PARAMS_DEFAUT, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT, PRIX } from 'civilestimateur-engine'
 import { accessState } from './lib/format.js'
 
 const { joursRestants } = accessState()
@@ -71,7 +70,13 @@ export default function App() {
   ])
   const [prix, setPrix] = useState(PRIX.map((p) => ({ ...p, pu: p.sac ?? p.bi })))
 
-  const { totaux, alertes } = useMemo(() => metrerProjet(levels, params), [levels, params])
+  // ville transmise au moteur pour activer les alertes géotechniques Lot A
+  // (contrainte admissible de zone vs fondation choisie) — voir validation.js
+  // côté moteur. Sans elle, ces vérifications sont silencieusement ignorées.
+  const { totaux, alertes } = useMemo(
+    () => metrerProjet(levels, { ...params, ville: proj.ville }),
+    [levels, params, proj.ville],
+  )
 
   // Écran d'accueil : choix du profil + acceptation des politiques
   if (!profile) {
@@ -145,7 +150,7 @@ export default function App() {
 
         <div key={tab} className="py-5 animate-fade-up">
           {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} levels={levels} setLevels={setLevels} params={params} setParams={setParams} prix={prix} setPrix={setPrix} isPro={isPro} />}
-          {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} />}
+          {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} ville={proj.ville} />}
           {tab === 'prix'    && <TabPrix    prix={prix} setPrix={setPrix} isPro={isPro} />}
           {tab === 'dqe'     && <TabDQE     totaux={totaux} prix={prix} params={params} alertes={alertes} />}
           {tab === 'export'  && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} alertes={alertes} isPro={isPro} />}

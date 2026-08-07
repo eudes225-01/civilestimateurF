@@ -2,8 +2,7 @@
 import React, { useState, useRef } from 'react'
 import { FileDown, Loader, Image as ImageIcon, X, Palette, BadgeCheck, MapPin, Phone, Mail } from 'lucide-react'
 import { Card, Button, SectionTitle, Label, Input, Badge } from '../ui/index.jsx'
-import { buildDQE } from '../../lib/metre.js'
-import { buildSousDetail } from '../../lib/sousDetail.js'
+import { buildDQE, buildSousDetail } from 'civilestimateur-engine'
 import { fmtCFA, fmtDate } from '../../lib/format.js'
 
 // Formatage des nombres pour le PDF : espace ASCII comme séparateur de milliers

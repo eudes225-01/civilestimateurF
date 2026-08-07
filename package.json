@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@emailjs/browser": "^4.3.3",
+    "civilestimateur-engine": "github:eudes225-01/civilestimateurB#main",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.383.0",

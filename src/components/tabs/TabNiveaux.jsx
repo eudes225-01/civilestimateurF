@@ -14,7 +14,7 @@ import { fmtNum } from '../../lib/format.js'
 import {
   metrerProjet, TOITURES, TYPES_MUR, TYPES_PLANCHER,
   SYSTEMES_CONSTRUCTIFS, SYSTEMES_FONDATION, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT,
-} from '../../lib/metre.js'
+} from 'civilestimateur-engine'
 import LevelPlan from '../LevelPlan.jsx'
 
 const DEF_PIECE = { nom: '', L: '', l: '', H: '', portes: '', fenetres: '' }
@@ -69,8 +69,11 @@ function ListEditor({ titre, items, cols, def, onChange, addLabel = 'Ajouter' })
   )
 }
 
-export default function TabNiveaux({ levels, setLevels, params, setParams }) {
-  const { totaux, parNiveau, alertes } = useMemo(() => metrerProjet(levels, params), [levels, params])
+export default function TabNiveaux({ levels, setLevels, params, setParams, ville }) {
+  const { totaux, parNiveau, alertes } = useMemo(
+    () => metrerProjet(levels, { ...params, ville }),
+    [levels, params, ville],
+  )
   const [ouvertRatios, setOuvertRatios] = useState(false)
 
   const setP = (k, v) => setParams({ ...params, [k]: v })
