@@ -2,7 +2,8 @@
 import React, { useState, useRef } from 'react'
 import { FileDown, Loader, Image as ImageIcon, X, Palette, BadgeCheck, MapPin, Phone, Mail } from 'lucide-react'
 import { Card, Button, SectionTitle, Label, Input, Badge } from '../ui/index.jsx'
-import { buildDQE, buildSousDetail } from 'civilestimateur-engine'
+import { buildDQE } from '../../lib/metre.js'
+import { buildSousDetail } from '../../lib/sousDetail.js'
 import { fmtCFA, fmtDate } from '../../lib/format.js'
 
 // Formatage des nombres pour le PDF : espace ASCII comme séparateur de milliers
@@ -39,6 +40,13 @@ const METRES_COMPLETS = [
   ['volPleineMasse', 'Fouille en pleine masse',                    'm³'],
   ['volFouille',     'Fouilles totales',                           'm³'],
   ['volRemblai',     'Remblai / évacuation',                       'm³'],
+  ['volDeblaisEvacuer', 'Déblais à évacuer (foisonnement)',         'm³'],
+  ['volRemblaisApport', 'Remblai — apport de matériau',             'm³'],
+  ['volSable',       'Sable pour béton',                           'm³'],
+  ['volGravier',     'Gravier pour béton',                         'm³'],
+  ['coffPoteaux',    'Coffrage poteaux',                           'm²'],
+  ['coffPoutres',    'Coffrage poutres',                           'm²'],
+  ['coffDalle',      'Coffrage dalle (sous-face)',                 'm²'],
   ['volProprete',    'Béton de propreté',                          'm³'],
   ['volSemelle',     'BA semelles + avant-poteaux',                'm³'],
   ['volChainageBas', 'BA chaînages & longrines',                   'm³'],
@@ -455,7 +463,9 @@ export default function TabExport({ proj, totaux, prix, params, alertes = [], is
           margin: { left: M, right: M, bottom: 18 },
           theme: 'grid',
           head: [['Désignation', 'Quantité', 'Unité']],
-          body: METRES_COMPLETS.map(([k, lab, u]) => [lab, pdfNum(totaux[k], 2), u]),
+          body: METRES_COMPLETS
+            .filter(([k]) => Math.round((+totaux[k] || 0) * 100) !== 0)
+            .map(([k, lab, u]) => [lab, pdfNum(totaux[k], 2), u]),
           styles: { fontSize: 8.5, cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 }, overflow: 'linebreak' },
           headStyles: { fillColor: [110, 110, 110], textColor: 255 },
           columnStyles: {

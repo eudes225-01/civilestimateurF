@@ -14,7 +14,7 @@ import { fmtNum } from '../../lib/format.js'
 import {
   metrerProjet, TOITURES, TYPES_MUR, TYPES_PLANCHER,
   SYSTEMES_CONSTRUCTIFS, SYSTEMES_FONDATION, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT,
-} from 'civilestimateur-engine'
+} from '../../lib/metre.js'
 import LevelPlan from '../LevelPlan.jsx'
 
 const DEF_PIECE = { nom: '', L: '', l: '', H: '', portes: '', fenetres: '' }
@@ -69,11 +69,8 @@ function ListEditor({ titre, items, cols, def, onChange, addLabel = 'Ajouter' })
   )
 }
 
-export default function TabNiveaux({ levels, setLevels, params, setParams, ville }) {
-  const { totaux, parNiveau, alertes } = useMemo(
-    () => metrerProjet(levels, { ...params, ville }),
-    [levels, params, ville],
-  )
+export default function TabNiveaux({ levels, setLevels, params, setParams }) {
+  const { totaux, parNiveau, alertes } = useMemo(() => metrerProjet(levels, params), [levels, params])
   const [ouvertRatios, setOuvertRatios] = useState(false)
 
   const setP = (k, v) => setParams({ ...params, [k]: v })
@@ -168,7 +165,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, ville
         {ouvertRatios && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3 text-[12.5px]">
             {[
-              ['semelle', 'Semelles'], ['chainage', 'Chaînages'], ['longrine', 'Longrines'], ['radier', 'Radier'],
+              ['semelleFilante', 'Semelles filantes'], ['semelleIsolee', 'Semelles isolées'], ['chainage', 'Chaînages'], ['longrine', 'Longrines'], ['radier', 'Radier'],
               ['poteau', 'Poteaux'], ['poutre', 'Poutres'], ['linteau', 'Linteaux'],
               ['dallePleine', 'Dalle pleine'], ['dalleTP', 'Dalle terre-plein'], ['hourdisM2', 'Hourdis (kg/m²)'],
             ].map(([k, lab]) => (
