@@ -31,14 +31,13 @@ export default function PlanAnalyzer({ proj, setProj, levels, setLevels, params,
   const [ex, setEx] = useState(null)          // extraction en cours de vérification
   const [applied, setApplied] = useState(false)
   const [drag, setDrag] = useState(false)
-  const [verifier2e, setVerifier2e] = useState(true)
 
   const pick = (f) => { setError(''); setEx(null); setApplied(false); if (f) setFile(f) }
 
   const analyser = async () => {
     if (!file) return
     setBusy(true); setError(''); setEx(null); setApplied(false)
-    const res = await analyzePlan(file, 'projet', { verifier: verifier2e })
+    const res = await analyzePlan(file, 'projet', { verifier: true })
     setBusy(false)
     if (!res.ok) { setError(res.message); return }
     setEx(res.data)
@@ -142,11 +141,7 @@ export default function PlanAnalyzer({ proj, setProj, levels, setLevels, params,
             {busy ? <Loader size={15} className="animate-spin" /> : <Wand2 size={15} />}
             {busy ? 'Lecture du plan…' : 'Lancer la lecture'}
           </Button>
-          <label className="flex items-center gap-1.5 text-[12.5px] text-muted">
-            <input type="checkbox" checked={verifier2e} onChange={(e) => setVerifier2e(e.target.checked)} className="w-3.5 h-3.5 accent-lagune" />
-            Double lecture de contrôle (plus lent, plus fiable)
-          </label>
-          {file && !busy && <span className="text-[12.5px] text-muted">Le plan sert uniquement à produire votre devis.</span>}
+          {file && !busy && <span className="text-[12.5px] text-muted">Le plan sert uniquement à produire votre devis. Double lecture active.</span>}
         </div>
 
         {error && (

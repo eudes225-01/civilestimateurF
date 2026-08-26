@@ -6,6 +6,10 @@
 // d'incertitudes. Le moteur déterministe (metre.js) calcule ensuite toutes
 // les quantités à partir de ces données, après validation humaine (A10).
 import { api } from './api.js'
+import * as pdfjsLib from 'pdfjs-dist'
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 export const PLAN_ACCEPTS = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 export const PLAN_MAX_MB = 8
@@ -29,6 +33,7 @@ const REGLES_COMMUNES = `RÈGLES STRICTES :
    mentions "HSP=…"). Sinon : null.
 9. Indique si le plan montre un TOIT-TERRASSE (acrotère, mention terrasse, étanchéité)
    dans "toitTerrasseDetecte".
+10. Chain-of-thought : Commence ton objet JSON par une clé "reflexion" contenant tes observations préliminaires sur le plan et la liste des vues que tu y détectes.
 Réponds STRICTEMENT avec un unique objet JSON valide, sans texte ni balise autour.`
 
 const PROMPT_PROJET = `Tu es un opérateur de saisie pour un logiciel de métré BTP. Analyse cette planche
@@ -39,6 +44,7 @@ ${REGLES_COMMUNES}
 
 Schéma de réponse :
 {
+  "reflexion": "string (tes observations préliminaires, la liste des vues, etc.)",
   "titre": "string ou null (titre du projet si lisible)",
   "ville": "string ou null",
   "confiance": "haute" | "moyenne" | "basse",
@@ -80,6 +86,20 @@ Schéma de réponse :
   }
 }`
 
+const PROMPT_LOCATOR = `Tu es un expert en lecture de plans BTP. Ton objectif est d'identifier toutes les vues distinctes présentes sur cette image de plan architectural.
+Pour chaque vue détectée (ex: plan du RDC, plan de l'étage, coupe, façade, plan des fondations), donne-moi ses coordonnées sous la forme d'une bounding box en pixels absolus [x1, y1, x2, y2], où (x1, y1) est le coin supérieur gauche et (x2, y2) le coin inférieur droit de la vue.
+Assure-toi d'englober toute la vue, y compris ses cotes extérieures et son titre.
+
+Réponds STRICTEMENT avec un unique objet JSON valide selon ce schéma :
+{
+  "vues": [
+    {
+      "nom": "string (ex: 'Plan RDC', 'Coupe')",
+      "box": [number, number, number, number]
+    }
+  ]
+}`
+
 const PROMPT_NIVEAU = `Tu es un opérateur de saisie pour un logiciel de métré BTP. Ce plan correspond
 à UN SEUL niveau d'un bâtiment.
 
@@ -87,7 +107,8 @@ ${REGLES_COMMUNES}
 
 Schéma de réponse :
 {
-  "nom": "string (nom du niveau si lisible, sinon \\"Niveau\\")",
+  "reflexion": "string (tes observations préliminaires, etc.)",
+  "nom": "string (nom du niveau si lisible, sinon \"Niveau\")",
   "HSP": number | null,
   "confiance": "haute" | "moyenne" | "basse",
   "incertitudes": ["…"],
@@ -124,18 +145,92 @@ export function readBase64(file) {
   })
 }
 
+async function rasterizePDF(file) {
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const images = []
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    let viewport = page.getViewport({ scale: 1 })
+    const maxDim = Math.max(viewport.width, viewport.height)
+    // On cible max ~3500px pour éviter la saturation mémoire, tout en gardant une excellente qualité (A0)
+    const scale = Math.min(3, 3500 / maxDim)
+    viewport = page.getViewport({ scale: Math.max(1.5, scale) })
+    
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')
+    
+    await page.render({ canvasContext: ctx, viewport }).promise
+    
+    // JPEG 90% pour limiter la taille du payload envoyé au proxy
+    images.push(canvas.toDataURL('image/jpeg', 0.90).split(',')[1])
+  }
+  return images
+}
+
+function loadImageFromBase64(b64, mimeType) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = `data:${mimeType};base64,${b64}`
+  })
+}
+
+function getLocatorImage(img) {
+  const maxDim = 1568 // Limite de redimensionnement de l'API Claude 3 Vision
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+  const w = Math.round(img.width * scale)
+  const h = Math.round(img.height * scale)
+  
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, w, h)
+  ctx.drawImage(img, 0, 0, w, h)
+  return {
+    b64: canvas.toDataURL('image/jpeg', 0.85).split(',')[1],
+    scaleUp: 1 / scale,
+    w, h
+  }
+}
+
+function cropImage(img, box, scaleUp) {
+  const x1 = Math.max(0, box[0] * scaleUp)
+  const y1 = Math.max(0, box[1] * scaleUp)
+  const x2 = Math.min(img.width, box[2] * scaleUp)
+  const y2 = Math.min(img.height, box[3] * scaleUp)
+  
+  const w = x2 - x1
+  const h = y2 - y1
+  if (w <= 10 || h <= 10) return null
+  
+  // Limiter le crop à 3500px max pour éviter un payload démesuré
+  const scale = Math.min(1, 3500 / Math.max(w, h))
+  const cw = Math.round(w * scale)
+  const ch = Math.round(h * scale)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = cw
+  canvas.height = ch
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, cw, ch)
+  ctx.drawImage(img, x1, y1, w, h, 0, 0, cw, ch)
+  return canvas.toDataURL('image/jpeg', 0.90).split(',')[1]
+}
+
 function parseJSON(text) {
   const clean = (text || '').replace(/```json/gi, '').replace(/```/g, '').trim()
   const start = clean.indexOf('{')
   const end = clean.lastIndexOf('}')
   if (start === -1 || end === -1) throw new Error('parse')
   return JSON.parse(clean.slice(start, end + 1))
-}
-
-function mediaBlock(file, data64) {
-  return file.type === 'application/pdf'
-    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: data64 } }
-    : { type: 'image', source: { type: 'base64', media_type: file.type, data: data64 } }
 }
 
 /**
@@ -151,10 +246,20 @@ export async function analyzePlan(file, mode = 'projet', opts = {}) {
   if (file.size > PLAN_MAX_MB * 1024 * 1024)
     return { ok: false, code: 'size', message: `Fichier trop lourd (max ${PLAN_MAX_MB} Mo).` }
 
-  let data64
-  try { data64 = await readBase64(file) } catch (e) { return { ok: false, message: e.message } }
-  const media = mediaBlock(file, data64)
-  const prompt = mode === 'niveau' ? PROMPT_NIVEAU : PROMPT_PROJET
+  let originalImages = []
+  try {
+    if (file.type === 'application/pdf') {
+      const b64Array = await rasterizePDF(file)
+      for (const b64 of b64Array) {
+        originalImages.push(await loadImageFromBase64(b64, 'image/jpeg'))
+      }
+    } else {
+      const data64 = await readBase64(file)
+      originalImages.push(await loadImageFromBase64(data64, file.type))
+    }
+  } catch (e) {
+    return { ok: false, message: e.message || ERRORS.parse }
+  }
 
   const callModel = async (messages) => {
     const res = await api.analysePlan(messages)
@@ -163,10 +268,64 @@ export async function analyzePlan(file, mode = 'projet', opts = {}) {
     return (res.content || []).map((b) => b.text || '').join('\n')
   }
 
-  let parsed
+  let parsed = {
+    titre: null, ville: null, confiance: 'haute', incertitudes: [],
+    toitTerrasseDetecte: false, niveaux: [], fondations: { detectee: false, semelles: [], chainages: [], longrines: [] }
+  }
+
   try {
-    const text = await callModel([{ role: 'user', content: [media, { type: 'text', text: prompt }] }])
-    parsed = parseJSON(text)
+    if (mode === 'projet') {
+      for (const img of originalImages) {
+        // Passe 1 : Locator
+        const loc = getLocatorImage(img)
+        const locMedia = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: loc.b64 } }
+        const locText = await callModel([{ role: 'user', content: [locMedia, { type: 'text', text: PROMPT_LOCATOR }] }])
+        
+        let locParsed
+        try {
+          locParsed = parseJSON(locText)
+        } catch(e) {
+          locParsed = { vues: [ { nom: "Plan entier", box: [0, 0, loc.w, loc.h] } ] }
+        }
+        
+        const vues = (locParsed.vues && locParsed.vues.length > 0) ? locParsed.vues : [ { nom: "Plan entier", box: [0, 0, loc.w, loc.h] } ]
+        
+        // Passe 2 : Extraction par sous-vue (Séquentiel pour éviter un Timeout backend)
+        for (const vue of vues) {
+          const cropB64 = cropImage(img, vue.box, loc.scaleUp)
+          if (!cropB64) continue
+          
+          const cropMedia = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: cropB64 } }
+          const text = await callModel([{ role: 'user', content: [cropMedia, { type: 'text', text: PROMPT_PROJET }] }])
+          
+          try {
+            const subRes = parseJSON(text)
+            // Fusionner les données de la sous-vue dans l'objet global
+            if (subRes.titre && !parsed.titre) parsed.titre = subRes.titre
+            if (subRes.ville && !parsed.ville) parsed.ville = subRes.ville
+            if (subRes.toitTerrasseDetecte) parsed.toitTerrasseDetecte = true
+            if (subRes.confiance === 'basse' || subRes.confiance === 'moyenne') parsed.confiance = 'basse'
+            if (subRes.incertitudes) parsed.incertitudes.push(...subRes.incertitudes)
+            if (subRes.niveaux) parsed.niveaux.push(...subRes.niveaux)
+            if (subRes.fondations && subRes.fondations.detectee) {
+              parsed.fondations.detectee = true
+              if (subRes.fondations.type && !parsed.fondations.type) parsed.fondations.type = subRes.fondations.type
+              if (subRes.fondations.semelles) parsed.fondations.semelles.push(...subRes.fondations.semelles)
+              if (subRes.fondations.chainages) parsed.fondations.chainages.push(...subRes.fondations.chainages)
+              if (subRes.fondations.longrines) parsed.fondations.longrines.push(...subRes.fondations.longrines)
+            }
+          } catch (e) {
+            parsed.incertitudes.push(`Échec de lecture de la vue: ${vue.nom}`)
+          }
+        }
+      }
+    } else {
+      // Mode niveau (un seul envoi)
+      const loc = getLocatorImage(originalImages[0])
+      const media = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: loc.b64 } }
+      const text = await callModel([{ role: 'user', content: [media, { type: 'text', text: PROMPT_NIVEAU }] }])
+      parsed = parseJSON(text)
+    }
   } catch (e) {
     if (e.code) return { ok: false, code: e.code, message: e.message }
     return { ok: false, code: 'parse', message: ERRORS.parse }
@@ -183,6 +342,24 @@ export async function analyzePlan(file, mode = 'projet', opts = {}) {
     if (!parsed.fondations.detectee) {
       parsed.incertitudes.push("Aucune vue FONDATIONS lue : les semelles/chaînages devront être saisis manuellement dans l'onglet Niveaux & métré.")
     }
+
+    // Validation des bornes physiques (force la confiance à 'basse' pour alerter l'utilisateur)
+    parsed.niveaux.forEach((n) => {
+      ;(n.pieces || []).forEach(p => {
+        if ((p.L && p.L > 50) || (p.l && p.l > 50)) p.confiance = 'basse'
+      })
+      ;(n.murs || []).forEach(m => {
+        if ((m.H && (m.H < 0.5 || m.H > 10)) || (m.L && m.L > 100)) m.confiance = 'basse'
+      })
+      ;(n.poteaux || []).forEach(pt => {
+        if ((pt.a && pt.a > 1) || (pt.b && pt.b > 1) || (pt.H && pt.H > 10)) pt.confiance = 'basse'
+      })
+    })
+    if (parsed.fondations && parsed.fondations.semelles) {
+      parsed.fondations.semelles.forEach(s => {
+        if ((s.L && s.L > 5) || (s.l && s.l > 5) || (s.h && s.h > 2)) s.confiance = 'basse'
+      })
+    }
   } else {
     parsed.incertitudes = Array.isArray(parsed.incertitudes) ? parsed.incertitudes : []
     if (!(parsed.pieces?.length || parsed.murs?.length))
@@ -190,8 +367,11 @@ export async function analyzePlan(file, mode = 'projet', opts = {}) {
   }
 
   // Seconde passe de vérification indépendante (A8) — optionnelle
-  if (opts.verifier) {
+  if (opts.verifier && mode === 'projet') {
     try {
+      // Pour éviter de renvoyer tous les crops, on envoie juste la vue globale (locator)
+      const loc = getLocatorImage(originalImages[0])
+      const media = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: loc.b64 } }
       const text2 = await callModel([{ role: 'user', content: [media, { type: 'text', text: PROMPT_VERIF(JSON.stringify(parsed)) }] }])
       const verif = parseJSON(text2)
       if (Array.isArray(verif.ecarts) && verif.ecarts.length) {
