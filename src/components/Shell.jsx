@@ -64,7 +64,7 @@ export function Onboarding({ onStart }) {
           </h1>
           <p className="max-w-[600px] mx-auto mt-4 text-[15px] sm:text-[16px] text-white/85 animate-fade-up [animation-delay:160ms]">
             Saisissez vos dimensions : le calcul automatique sort les quantités, vous ajustez
-            les prix à votre réalité de terrain. Connexion avec Google, accès gratuit pendant la période de lancement.
+            les prix à votre réalité de terrain. Connexion avec Google ; le DQE et l'export PDF sont réservés aux abonnés.
           </p>
         </div>
 

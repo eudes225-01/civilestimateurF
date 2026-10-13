@@ -7,6 +7,9 @@ import { jetonSession } from './supabase.js'
 
 const BASE = import.meta.env.VITE_API_URL || ''
 
+/** Vrai si un backend est configuré. Sans backend (développement local), il n'y a ni abonnement ni verrou. */
+export const backendActif = !!BASE
+
 async function call(method, path, body) {
   if (!BASE) return null
   // Utilisateur connecté : le jeton de session accompagne chaque appel (routes protégées).
@@ -46,6 +49,9 @@ export const api = {
   prix:        ()       => call('GET',  '/api/prix'),
   calcul:      (body)   => call('POST', '/api/calcul', body),
   analysePlan: (msgs)   => call('POST', '/api/analyse-plan', { messages: msgs }),
+  // Abonnement FedaPay : init renvoie l'URL de paiement ; verify confirme un paiement au retour du navigateur.
+  fedapayInit:   ()   => call('POST', '/api/fedapay/init'),
+  fedapayVerify: (id) => call('POST', '/api/fedapay/verify', id ? { id } : undefined),
   // Mail de bienvenue : le serveur n'écrit qu'à la toute première connexion du compte.
   bienvenue:   ()       => call('POST', '/api/email/bienvenue'),
   pdfDevis,

@@ -13,6 +13,8 @@ import { PRIX, PRIX_VERSION, PRIX_DATE } from './lib/metre.js'
 import { api } from './lib/api.js'
 import { plansManquants } from './lib/planGate.js'
 import { useAuth } from './lib/auth.jsx'
+import { useAbonnement } from './lib/abonnement.js'
+import Paywall from './components/Paywall.jsx'
 import AuthGate from './components/AuthGate.jsx'
 import ProjetsMenu from './components/ProjetsMenu.jsx'
 import { sauverProjet, chargerProjet, instantane } from './lib/projets.js'
@@ -22,8 +24,8 @@ const TABS = [
   { k: 'projet',  lab: 'Projet & plan',     Ic: FileText, col: 'indigo'   },
   { k: 'niveaux', lab: 'Niveaux & métré', Ic: Layers,   col: 'lagune'   },
   { k: 'prix',    lab: 'Prix',              Ic: Table,    col: 'soleil'   },
-  { k: 'dqe',     lab: 'DQE',               Ic: Ruler,    col: 'laterite' },
-  { k: 'export',  lab: 'Export PDF',        Ic: FileDown, col: 'jade'     },
+  { k: 'dqe',     lab: 'DQE',               Ic: Ruler,    col: 'laterite', payant: true },
+  { k: 'export',  lab: 'Export PDF',        Ic: FileDown, col: 'jade',     payant: true },
 ]
 
 const projVide = () => ({ titre: '', mo: '', entreprise: '', ref: '', ville: '' })
@@ -43,6 +45,10 @@ export default function App() {
   const [tab, setTab] = useState('projet')
   const [transitioning, setTransitioning] = useState(false)
   const [pendingTab, setPendingTab] = useState(null)
+
+  // Abonnement : pas de formule gratuite, le DQE et l'export PDF exigent un abonnement actif.
+  const abo = useAbonnement(chargement ? undefined : (session?.user?.id ?? null))
+  const payant = (k) => !!TABS.find((t) => t.k === k)?.payant
 
 
   // Plans déposés (un tableau de fichiers par type) : l'étape « Projet & plan » ne
@@ -70,6 +76,12 @@ export default function App() {
       return
     }
     setRefus(false)
+    // Étape payante sans abonnement : on affiche directement l'écran d'abonnement (pas de transition).
+    if (payant(k) && !abo.acces) {
+      setTab(k)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     setPendingTab(k)
     setTransitioning(true)
     setTimeout(() => {
@@ -223,7 +235,7 @@ export default function App() {
               >
                 <span className={`font-mono text-[11px] ${on ? 'opacity-80' : 'opacity-50'}`}>{String(i + 1).padStart(2, '0')}</span>
                 <t.Ic size={15} /> {t.lab}
-                {verrou && i > 0 && <Lock size={12} className="opacity-60" />}
+                {((verrou && i > 0) || (t.payant && !abo.acces)) && <Lock size={12} className="opacity-60" />}
               </button>
             )
           })}
@@ -233,8 +245,11 @@ export default function App() {
           {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} depots={depots} setDepots={setDepots} />}
           {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} />}
           {tab === 'prix'    && <TabPrix    prix={prix} setPrix={setPrix} prixInfo={prixInfo} />}
-          {tab === 'dqe'     && <TabDQE     totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
-          {tab === 'export'  && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
+          {payant(tab) && !abo.acces && (
+            <Paywall etape={TABS.find((t) => t.k === tab)?.lab} abo={abo} onRetour={() => setTab('prix')} />
+          )}
+          {tab === 'dqe'     && abo.acces && <TabDQE     totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
+          {tab === 'export'  && abo.acces && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
         </div>
 
         {verrou && refus && (
