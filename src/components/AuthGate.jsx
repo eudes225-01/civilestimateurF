@@ -4,6 +4,7 @@ import React from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { Card, Button } from './ui/index.jsx'
 import { LogoMark, LogoWord } from './Logo.jsx'
+import HeroDecor from './HeroDecor.jsx'
 import { useAuth } from '../lib/auth.jsx'
 
 const Google = () => (
@@ -18,8 +19,9 @@ const Google = () => (
 export default function AuthGate() {
   const { connecterGoogle, erreur } = useAuth()
   return (
-    <div className="min-h-screen grid place-items-center px-4 gradient-hero">
-      <Card className="w-full max-w-[400px] p-7 text-center" accent="indigo">
+    <div className="relative min-h-screen grid place-items-center px-4 overflow-hidden gradient-hero animate-drift">
+      <HeroDecor dense />
+      <Card className="relative z-10 w-full max-w-[400px] p-7 text-center shadow-glow" accent="indigo">
         <div className="flex justify-center"><LogoMark size={56} glow /></div>
         <div className="mt-3 flex justify-center"><LogoWord /></div>
         <h1 className="mt-5 font-display font-bold text-[20px]">Connectez-vous pour continuer</h1>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Badge } from './ui/index.jsx'
 import { LogoMark } from './Logo.jsx'
+import HeroDecor from './HeroDecor.jsx'
 import { PRIX_VERSION, PRIX_DATE } from '../lib/metre.js'
 import { fmtMois } from '../lib/format.js'
 
@@ -46,12 +47,7 @@ export function Onboarding({ onStart }) {
     <div className="flex-1">
       {/* ── BANNIÈRE HÉRO ── */}
       <section className="relative overflow-hidden gradient-hero animate-drift text-white">
-        <div className="absolute inset-0 blueprint-grid opacity-40 animate-grid-pan pointer-events-none" />
-        {/* modules de chantier flottants */}
-        <div className="absolute top-10 right-[8%] w-24 h-24 rounded-2xl border-2 border-white/20 rotate-12 animate-float pointer-events-none" />
-        <div className="absolute bottom-12 right-[22%] w-14 h-14 rounded-xl bg-soleil/25 animate-float-slow pointer-events-none" />
-        <div className="absolute top-1/2 left-[6%] w-16 h-16 rounded-full border-2 border-white/15 animate-float-slow pointer-events-none" />
-        <div className="absolute bottom-8 left-[20%] w-10 h-10 rounded-lg bg-white/10 rotate-45 animate-float pointer-events-none" />
+        <HeroDecor />
 
         <div className="relative max-w-[1180px] mx-auto px-[18px] py-12 sm:py-16 text-center">
           <div className="flex justify-center mb-4 animate-fade-up">

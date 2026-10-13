@@ -14,7 +14,13 @@ const MESSAGES = {
   fedapay_non_configure: 'Le paiement n\u2019est pas encore disponible. Réessayez plus tard.',
   abonnements_non_configures: 'Le paiement n\u2019est pas encore disponible. Réessayez plus tard.',
 }
-const messageErreur = (e) => MESSAGES[e?.error] || MESSAGES[e?.message] || 'Le service est momentanément indisponible. Réessayez dans un instant.'
+// Message affiché + code technique entre parenthèses (utile pour le support) ; le détail complet va dans la console.
+function messageErreur(e) {
+  console.error('[abonnement]', e, e?.detail || '')
+  if (e instanceof TypeError) return 'Serveur injoignable. Vérifiez votre connexion et réessayez. (réseau)'
+  const code = e?.error || e?.message || 'inconnu'
+  return `${MESSAGES[code] || 'Le paiement n\u2019a pas pu démarrer. Réessayez dans un instant.'} (${code})`
+}
 
 export function useAbonnement(userId) {
   const [etat, setEtat] = useState(null)            // réponse de GET /api/access
