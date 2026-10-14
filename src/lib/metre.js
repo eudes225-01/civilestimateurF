@@ -1,7 +1,7 @@
 // src/lib/metre.js
 // Compatibilité — ce fichier ne contient plus de logique de calcul.
 //
-// Le moteur (métré, DQE, sous-détail, validations, recommandations Lot A)
+// Le moteur (métré, DQE, sous-détail, validations, plans par type)
 // vit désormais dans civilestimateur-engine (dépendance Git vers
 // civilestimateurB), source de vérité unique partagée avec le backend.
 // Avant cette bascule, ce fichier contenait une copie ESM du moteur

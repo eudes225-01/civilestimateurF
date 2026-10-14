@@ -3,13 +3,15 @@
 // (données brutes, jamais de quantités), affiche les incertitudes, puis
 // laisse l'utilisateur importer dans le niveau.
 import React, { useRef, useState } from 'react'
-import { UploadCloud, Loader, Check, X, AlertTriangle, ScanLine, ChevronDown } from 'lucide-react'
+import { UploadCloud, Loader, Check, X, AlertTriangle, ScanLine, ChevronDown, Lock } from 'lucide-react'
+import { EtiquettePremium } from './StatutBadge.jsx'
 import { Button } from './ui/index.jsx'
-import { analyzePlan, normPiece, normMur, normPoteau, PLAN_MAX_MB } from '../lib/planreader.js'
+import { analyzeNiveau, normPiece, normMur, normPoteau, PLAN_MAX_MB } from '../lib/planreader.js'
 import { TYPES_MUR } from '../lib/metre.js'
 import PlanHelp from './PlanHelp.jsx'
 
-export default function LevelPlan({ levelName, onApply }) {
+// `premium` : l'import d'un plan (lecture automatique) est une fonction Premium ; sinon, un bouton ouvre l'abonnement.
+export default function LevelPlan({ levelName, onApply, premium = true, onPremium }) {
   const inputRef = useRef(null)
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState(null)
@@ -23,7 +25,7 @@ export default function LevelPlan({ levelName, onApply }) {
   const analyser = async () => {
     if (!file) return
     setBusy(true); setError(''); setResult(null)
-    const res = await analyzePlan(file, 'niveau')
+    const res = await analyzeNiveau(file)
     setBusy(false)
     if (!res.ok) { setError(res.message); return }
     setResult(res.data)
@@ -42,6 +44,18 @@ export default function LevelPlan({ levelName, onApply }) {
   }
 
   const incertitudes = result?.incertitudes || []
+
+  if (!premium) {
+    return (
+      <div className="border-t border-line">
+        <button onClick={onPremium} className="w-full flex items-center gap-2 px-5 py-2.5 text-[12.5px] font-semibold text-soleil-deep hover:bg-soleil-soft/50 transition-colors">
+          <Lock size={14} />
+          Importer le plan de ce niveau (lecture assistée)
+          <EtiquettePremium className="ml-auto" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="border-t border-line">

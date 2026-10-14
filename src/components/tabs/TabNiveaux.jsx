@@ -18,9 +18,11 @@ import {
 import LevelPlan from '../LevelPlan.jsx'
 
 const DEF_PIECE = { nom: '', L: '', l: '', H: '', portes: '', fenetres: '' }
-const DEF_MUR = { nom: '', type: 'agglo15', nb: 1, L: '', H: '', position: 'interieur', portes: '', fenetres: '' }
+const DEF_MUR = { nom: '', type: 'agglo15', nb: 1, L: '', H: '', position: 'interieur', portes: '', fenetres: '', jonctionsT: '', jonctionsX: '', poteaux: '' }
 const DEF_POTEAU = { nom: '', nb: 1, a: 0.3, b: 0.25, H: '' }
 const DEF_POUTRE = { nom: '', nb: 1, L: '', b: 0.25, h: 0.4 }
+const DEF_VOILE = { nom: '', nb: 1, L: '', ep: 0.2, H: '' }
+const DEF_CV = { nom: '', nb: 1, a: 0.15, b: 0.15, H: '' }
 const DEF_SEMELLE = { type: 'S1', nb: 1, L: '', l: '', h: 0.3, prof: 1.5 }
 const DEF_LIN = { nom: '', nb: 1, L: '', b: 0.2, h: 0.2, prof: 1.5 }
 
@@ -69,7 +71,7 @@ function ListEditor({ titre, items, cols, def, onChange, addLabel = 'Ajouter' })
   )
 }
 
-export default function TabNiveaux({ levels, setLevels, params, setParams }) {
+export default function TabNiveaux({ levels, setLevels, params, setParams, premium = true, onPremium }) {
   const { totaux, parNiveau, alertes } = useMemo(() => metrerProjet(levels, params), [levels, params])
   const [ouvertRatios, setOuvertRatios] = useState(false)
 
@@ -147,12 +149,26 @@ export default function TabNiveaux({ levels, setLevels, params, setParams }) {
             { k: 'pertesAgglo', lab: 'Pertes agglos (%)' },
             { k: 'pertesBrique', lab: 'Pertes briques (%)' },
             { k: 'K', lab: 'Coeff. majoration (K)' },
+            { k: 'largPoteau', lab: 'Larg. poteau déduite (m)' },
           ].map(({ k, lab }) => (
             <div key={k}>
               <Label>{lab}</Label>
               <NumIn value={params[k]} onChange={(v) => setP(k, v)} />
             </div>
           ))}
+        </div>
+
+        {/* Chaînage haut (ceinture sur murs porteurs) — fiche Eurocode §3.C */}
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          <label className="flex items-center gap-2 font-medium text-ink">
+            <input type="checkbox" checked={params.chainageHaut?.actif ?? true}
+              onChange={(e) => setP('chainageHaut', { ...(params.chainageHaut || {}), actif: e.target.checked })} />
+            Chaînage haut sur les murs porteurs (hors ossature)
+          </label>
+          <span className="text-[10.5px] text-muted">b (m)</span>
+          <NumIn value={params.chainageHaut?.b ?? 0.2} onChange={(v) => setP('chainageHaut', { ...(params.chainageHaut || {}), b: v })} w="w-[64px]" />
+          <span className="text-[10.5px] text-muted">h (m)</span>
+          <NumIn value={params.chainageHaut?.h ?? 0.2} onChange={(v) => setP('chainageHaut', { ...(params.chainageHaut || {}), h: v })} w="w-[64px]" />
         </div>
 
         {/* Ratios d'acier par élément (A5) */}
@@ -166,7 +182,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3 text-[12.5px]">
             {[
               ['semelleFilante', 'Semelles filantes'], ['semelleIsolee', 'Semelles isolées'], ['chainage', 'Chaînages'], ['longrine', 'Longrines'], ['radier', 'Radier'],
-              ['poteau', 'Poteaux'], ['poutre', 'Poutres'], ['linteau', 'Linteaux'],
+              ['poteau', 'Poteaux'], ['poutre', 'Poutres'], ['linteau', 'Linteaux'], ['voile', 'Voiles'],
               ['dallePleine', 'Dalle pleine'], ['dalleTP', 'Dalle terre-plein'], ['hourdisM2', 'Hourdis (kg/m²)'],
             ].map(([k, lab]) => (
               <div key={k}>
@@ -197,6 +213,15 @@ export default function TabNiveaux({ levels, setLevels, params, setParams }) {
       {/* ══ FONDATIONS (A1) ══ */}
       <Card className="p-5" accent="laterite">
         <SectionTitle accent="laterite">Fondations</SectionTitle>
+        {(params.planFlags?.prescriptionsFondation || []).length > 0 && (
+          <div className="mb-4 rounded-[10px] border border-soleil/30 bg-soleil-soft/40 px-3.5 py-2.5">
+            <p className="text-[11.5px] font-semibold uppercase tracking-wide text-soleil-deep mb-1">Prescriptions lues sur le plan de fondation</p>
+            <ul className="grid gap-1 text-[12.5px] list-disc pl-5">
+              {params.planFlags.prescriptionsFondation.map((x, i) => <li key={i}>{x}</li>)}
+            </ul>
+            <p className="text-[11.5px] text-muted mt-1.5">Informatif : ces mentions ne modifient aucun calcul. Contrôlez le fond de fouille avant bétonnage.</p>
+          </div>
+        )}
         <Label>Système de fondation</Label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
           {Object.entries(SYSTEMES_FONDATION).map(([key, s]) => {
@@ -376,6 +401,12 @@ export default function TabNiveaux({ levels, setLevels, params, setParams }) {
                       <NumIn value={mu.portes} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, portes: v }; upList(li, 'murs', n) }} w="w-[52px]" step="1" />
                       <span className="text-[10.5px] text-muted">Fen.</span>
                       <NumIn value={mu.fenetres} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, fenetres: v }; upList(li, 'murs', n) }} w="w-[52px]" step="1" />
+                      <span className="text-[10.5px] text-muted" title="Branches de murs arrivant en T sur ce mur (correction ½·e par jonction)">Jonc. T</span>
+                      <NumIn value={mu.jonctionsT} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, jonctionsT: v }; upList(li, 'murs', n) }} w="w-[48px]" step="1" />
+                      <span className="text-[10.5px] text-muted" title="Croisements en X sur ce mur (correction e par jonction)">Jonc. X</span>
+                      <NumIn value={mu.jonctionsX} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, jonctionsX: v }; upList(li, 'murs', n) }} w="w-[48px]" step="1" />
+                      <span className="text-[10.5px] text-muted" title="Poteaux traversant ce mur (surface déduite de la maçonnerie)">Poteaux</span>
+                      <NumIn value={mu.poteaux} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, poteaux: v }; upList(li, 'murs', n) }} w="w-[48px]" step="1" />
                       <button onClick={() => upList(li, 'murs', lv.murs.filter((_, idx) => idx !== mi))} className="text-muted hover:text-laterite"><Trash2 size={14} /></button>
                     </div>
                   ))}
@@ -417,7 +448,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams }) {
               </div>
 
               {/* Ossature (A2) */}
-              {(params.systeme === 'ossature' || params.systeme === 'mixte' || (lv.poteaux || []).length > 0 || (lv.poutres || []).length > 0) && (
+              {(params.systeme === 'ossature' || params.systeme === 'mixte' || (lv.poteaux || []).length > 0 || (lv.poutres || []).length > 0 || (lv.voiles || []).length > 0 || (lv.chainagesV || []).length > 0) && (
                 <div className="grid lg:grid-cols-2 gap-4">
                   <ListEditor titre="Poteaux & raidisseurs du niveau"
                     items={lv.poteaux || []} onChange={(l) => upList(li, 'poteaux', l)} def={DEF_POTEAU}
@@ -435,25 +466,42 @@ export default function TabNiveaux({ levels, setLevels, params, setParams }) {
                       { k: 'nb', lab: 'Nb', w: 'w-[52px]' }, { k: 'L', lab: 'L (m)' },
                       { k: 'b', lab: 'b (m)' }, { k: 'h', lab: 'h (m)' },
                     ]} />
+                  <ListEditor titre="Voiles du niveau (plan de coffrage)"
+                    items={lv.voiles || []} onChange={(l) => upList(li, 'voiles', l)} def={DEF_VOILE}
+                    addLabel="Ajouter des voiles"
+                    cols={[
+                      { k: 'nom', lab: '', type: 'text', w: 'w-[80px]', ph: 'V1' },
+                      { k: 'nb', lab: 'Nb', w: 'w-[52px]' }, { k: 'L', lab: 'L (m)' },
+                      { k: 'ep', lab: 'Ép. (m)' }, { k: 'H', lab: 'H (m)', ph: 'HSP' },
+                    ]} />
+                  <ListEditor titre="Chaînages verticaux du niveau"
+                    items={lv.chainagesV || []} onChange={(l) => upList(li, 'chainagesV', l)} def={DEF_CV}
+                    addLabel="Ajouter des chaînages verticaux"
+                    cols={[
+                      { k: 'nom', lab: '', type: 'text', w: 'w-[80px]', ph: 'CV1' },
+                      { k: 'nb', lab: 'Nb', w: 'w-[52px]' }, { k: 'a', lab: 'a (m)' },
+                      { k: 'b', lab: 'b (m)' }, { k: 'H', lab: 'H (m)', ph: 'HSP' },
+                    ]} />
                 </div>
               )}
             </div>
 
             {/* Import plan de ce niveau */}
-            <LevelPlan levelName={lv.nom} onApply={(data) => applyLevelPlan(li, data)} />
+            <LevelPlan levelName={lv.nom} onApply={(data) => applyLevelPlan(li, data)} premium={premium} onPremium={onPremium} />
 
             {/* Résumé niveau */}
             {Object.keys(m).length > 0 && (
               <div className="px-5 pb-4">
                 <Separator />
                 <p className="text-[12px] text-muted font-semibold uppercase tracking-wide mb-2">Quantités calculées — {TYPES_PLANCHER[m.typePlancher]?.lab}</p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-[12.5px]">
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-[12.5px]">
                   {[
                     ['Ldev', 'm', 'Développé murs'],
                     ['surfPlancher', 'm²', 'Surf. plancher'],
                     ['Smur', 'm²', 'Maçonnerie nette'],
                     ['volPoteaux', 'm³', 'BA poteaux'],
                     ['volPoutres', 'm³', 'BA poutres'],
+                    ['volVoiles', 'm³', 'BA voiles'],
                     ['volLinteaux', 'm³', 'Linteaux (auto)'],
                     ['volPlancher', 'm³', 'Béton plancher'],
                   ].map(([k, u, lab]) => (
@@ -481,7 +529,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams }) {
             ['volFouille', 'm³', 'Fouilles (toutes)'],
             ['volProprete', 'm³', 'Béton de propreté'],
             ['volBAfondation', 'm³', 'BA fondations'],
-            ['volBAelevation', 'm³', 'BA élévation (pot./poutres/linteaux)'],
+            ['volBAelevation', 'm³', 'BA élévation (pot./poutres/voiles/linteaux)'],
             ['volDalle', 'm³', 'Béton planchers'],
             ['volBA', 'm³', 'BA total'],
             ['Smur', 'm²', 'Maçonnerie nette (tous types)'],
