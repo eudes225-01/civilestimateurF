@@ -1,11 +1,16 @@
 // src/lib/format.js
-// Utilitaires de formatage.
+// Utilitaires de formatage + état d'accès (période gratuite 3 mois).
 
-/** « 2026-03 » → « mars 2026 » (date de version du barème de prix) */
-export const fmtMois = (ym) => {
-  const m = /^(\d{4})-(\d{2})/.exec(String(ym || ''))
-  if (!m) return String(ym || '')
-  return new Date(+m[1], +m[2] - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+const LANCEMENT = new Date(import.meta.env.VITE_LANCEMENT_DATE || '2026-06-26T00:00:00Z')
+export const FIN_GRATUIT = new Date(LANCEMENT)
+FIN_GRATUIT.setMonth(FIN_GRATUIT.getMonth() + 3)
+
+/** État de l'accès : gratuit jusqu'à FIN_GRATUIT, Premium requis ensuite. */
+export function accessState() {
+  const now = new Date()
+  const gratuit = now < FIN_GRATUIT
+  const joursRestants = Math.max(0, Math.ceil((FIN_GRATUIT - now) / 86_400_000))
+  return { gratuit, joursRestants, finGratuit: FIN_GRATUIT.toISOString() }
 }
 
 /** Formate une Date en « 26/09/2026 » */

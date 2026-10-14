@@ -5,7 +5,7 @@
 import React, { useRef, useState } from 'react'
 import { UploadCloud, Loader, Check, X, AlertTriangle, ScanLine, ChevronDown } from 'lucide-react'
 import { Button } from './ui/index.jsx'
-import { analyzeNiveau, normPiece, normMur, normPoteau, PLAN_MAX_MB } from '../lib/planreader.js'
+import { analyzePlan, normPiece, normMur, normPoteau, PLAN_MAX_MB } from '../lib/planreader.js'
 import { TYPES_MUR } from '../lib/metre.js'
 import PlanHelp from './PlanHelp.jsx'
 
@@ -23,7 +23,7 @@ export default function LevelPlan({ levelName, onApply }) {
   const analyser = async () => {
     if (!file) return
     setBusy(true); setError(''); setResult(null)
-    const res = await analyzeNiveau(file)
+    const res = await analyzePlan(file, 'niveau')
     setBusy(false)
     if (!res.ok) { setError(res.message); return }
     setResult(res.data)

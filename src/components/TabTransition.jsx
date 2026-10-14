@@ -5,7 +5,7 @@ import { LogoMark } from './Logo.jsx'
 
 const ETAPES = [
   'Préparation du module…',
-  'Chargement de la base de prix…',
+  'Chargement de la base RPR 26.2…',
   'Initialisation du calcul automatique…',
   'Application des formules de métré…',
   'Finalisation…',

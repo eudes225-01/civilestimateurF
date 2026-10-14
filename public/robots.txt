@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://civilestimator-archinova.store/sitemap.xml

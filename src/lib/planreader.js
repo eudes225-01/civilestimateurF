@@ -1,31 +1,19 @@
 // src/lib/planreader.js
-// Lecture de plans par type (document « Codification des plans techniques BTP »).
-//
-// Le plan est déposé dans UNE case par type (fondation, vue en plan, coupe,
-// plomberie, électricité, poutraison, toiture, coffrage). Chaque fichier est
-// rastérisé, découpé en vues (passe « locator »), et chaque vue est :
-//   1. classée : le locator remonte cartouche + codes lus, le moteur
-//      (classifierPlan / routerPlan) tranche entre signature, type annoncé et
-//      type du dépôt — une vue déposée au mauvais endroit est reclassée ;
-//   2. lue avec l'extracteur PROPRE à son type (prompt dédié) ;
-//   3. relue indépendamment (double lecture, optionnelle).
-// Principe inchangé : le modèle n'agrège ni ne calcule RIEN. Il transcrit des
-// données brutes ; les calculs sont faits ensuite par le moteur déterministe,
-// module par type, après validation humaine (écran « Vérifier la lecture »).
+// Lecture automatique de plan v2 (correctif A8 du rapport d'insuffisances).
+// Principe : le modèle n'agrège RIEN et ne calcule RIEN. Il extrait des
+// DONNÉES BRUTES structurées par vue (murs, pièces, ouvertures, poteaux,
+// poutres, semelles, niveaux/HSP), avec un champ de confiance et une liste
+// d'incertitudes. Le moteur déterministe (metre.js) calcule ensuite toutes
+// les quantités à partir de ces données, après validation humaine (A10).
 import { api } from './api.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
-import { TYPES_PLANS, CLES_TYPES_PLANS, routerPlan } from 'civilestimateur-engine'
-import { consolider, estVide } from './planmerge.js'
-
-export { extractionToProject, normPiece, normMur, normPoteau } from './planmerge.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 export const PLAN_ACCEPTS = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 export const PLAN_MAX_MB = 8
 
-// ── Prompts ──────────────────────────────────────────────────────────────────
 const REGLES_COMMUNES = `RÈGLES STRICTES :
 1. Tu ne calcules AUCUNE quantité, AUCUN total, AUCUNE surface agrégée. Tu ne fais que
    TRANSCRIRE ce qui est écrit ou mesurable sur le plan, élément par élément.
@@ -35,209 +23,105 @@ const REGLES_COMMUNES = `RÈGLES STRICTES :
    "basse" (déduite de l'échelle, des proportions ou partiellement lisible).
 4. Les cotes en centimètres sur les plans (ex : 320, 400) doivent être converties
    en mètres (3,20 ; 4,00). Les nombres utilisent le point décimal.
-5. Chain-of-thought : commence ton objet JSON par une clé "reflexion" contenant tes
-   observations préliminaires sur la vue.
+5. Types de murs d'après l'épaisseur : 0,10 m → "brique10" ou "agglo10" ;
+   0,15 m → "agglo15" ; 0,20 m → "agglo20". Si l'épaisseur est inconnue : "inconnu".
+6. Les poteaux sont les sections pochées (noircies) sur les vues en plan : compte-les
+   et relève leurs sections (ex : 0.30 × 0.25).
+7. Si le plan comporte une vue FONDATIONS (semelles S1, S2…, chaînages, longrines),
+   transcris le tableau des semelles : type, nombre, dimensions, profondeur.
+8. Lis les HSP (hauteurs sous plafond) sur la COUPE si elle existe (cotes verticales,
+   mentions "HSP=…"). Sinon : null.
+9. Indique si le plan montre un TOIT-TERRASSE (acrotère, mention terrasse, étanchéité)
+   dans "toitTerrasseDetecte".
+10. Chain-of-thought : Commence ton objet JSON par une clé "reflexion" contenant tes observations préliminaires sur le plan et la liste des vues que tu y détectes.
 Réponds STRICTEMENT avec un unique objet JSON valide, sans texte ni balise autour.`
 
-const signaturesPourLocator = () => CLES_TYPES_PLANS
-  .map((k) => `- "${k}" = ${TYPES_PLANS[k].lab} : ${TYPES_PLANS[k].repere}`).join('\n')
+const PROMPT_PROJET = `Tu es un opérateur de saisie pour un logiciel de métré BTP. Analyse cette planche
+de plans architecturaux (elle peut contenir plusieurs vues : plans de niveaux, coupe,
+façade, fondations).
 
-const PROMPT_LOCATOR = `Tu es un expert en lecture de plans BTP. Identifie toutes les vues distinctes présentes sur cette image
-(plan de fondation, plan d'étage, coupe, plomberie, électricité, poutraison, toiture, coffrage…).
-
-Pour chaque vue, donne :
-- "nom" : désignation de la vue (ex : "Plan RDC", "Coupe A-A") ;
-- "type" : UNE valeur parmi "fondation", "plan", "coupe", "plomberie", "electricite", "poutraison", "toiture", "coffrage" ;
-- "cartouche" : le titre EXACT lu dans le cartouche ou sous la vue (ex : "PLAN DE COFFRAGE R+1"), null s'il est absent ;
-- "codes" : la liste (max 25) des codes et mentions réellement lus sur la vue (ex : "SF", "S2", "P1", "EF", "Ø100", "HSP", "(16+4)", "V1", "VV", "TGBT", "30%") ;
-- "box" : [x1, y1, x2, y2] en pixels absolus ((x1,y1) coin supérieur gauche), englobant la vue entière avec ses cotes extérieures et son titre.
-
-Signatures de reconnaissance par type :
-${signaturesPourLocator()}
-
-Ne devine pas : ne liste dans "codes" que ce qui est lisible. Réponds STRICTEMENT avec un unique objet JSON valide :
-{ "vues": [ { "nom": "string", "type": "string", "cartouche": "string|null", "codes": ["string"], "box": [number, number, number, number] } ] }`
-
-const ENTETE = (titre) => `Tu es un opérateur de saisie pour un logiciel de métré BTP. Cette vue est un ${titre}.\n\n${REGLES_COMMUNES}\n`
-
-const PROMPTS = {
-  fondation: `${ENTETE("PLAN DE FONDATION ET D'IMPLANTATION")}
-Les données de fondation ne viennent d'aucune ville ni d'aucune zone : elles viennent UNIQUEMENT de ce plan (et de ses coupes, détails
-et notes). Relève donc TOUT ce qui est dessiné, coté ou écrit, et mets null pour ce qui n'y figure pas.
-CODES À RECONNAÎTRE : SF = semelle filante ; SI = semelle isolée ; SC = semelle continue (sous mur) ;
-R = radier ; LN / LG = longrine ; BP = béton de propreté ; S1, S2… = semelles isolées numérotées
-(souvent alignées sur le poteau : semelle S2 sous poteau P2) ; TN = terrain naturel.
-ANNOTATIONS : "Sf(40x25ht)" = semelle filante de 40 cm de large × 25 cm de haut → largeur 0.40, hauteur 0.25 ;
-cotes de niveau en cercle, négatives (ex : -1.20) = niveau d'assise / profondeur d'ancrage → profondeurFouille = 1.20 (valeur POSITIVE, en m) ;
-tableau de nomenclature d'armatures (Pos., Code Forme, HAØ, longueur) : IGNORE-le, ce n'est pas une dimension de béton.
-Pour des semelles isolées, relève un enregistrement par type (S1, S2…) avec le nombre d'exemplaires.
-"lineaire" (filante) : UNIQUEMENT si une longueur totale est écrite, sinon null.
-Relève aussi, s'ils figurent sur le plan : les fûts / attentes de poteaux en fondation (avantPoteaux : repère, nombre, section a × b,
-hauteur H) ; les murs de soubassement en gros béton banché ("banche" : largeur b, hauteur h) ou en moellons ("moellons" : b, h) ;
-un hérissonnage en pierres sèches ("herisson" : true si dessiné ou mentionné) ; les longrines et chaînages bas (repère, nombre,
-longueur, section) ; l'épaisseur du béton de propreté et celle du radier.
-"prescriptions" : recopie TELLES QU'ÉCRITES (sans les interpréter ni les compléter) les mentions du plan, des coupes et des notes qui
-conditionnent l'exécution : sol d'assise attendu ou niveau d'assise exigé, repère de nivellement, eau / drainage, remblai / purge,
-classe ou dosage du béton, enrobage, tolérances. Une phrase par prescription, liste vide si rien n'est écrit.
+${REGLES_COMMUNES}
 
 Schéma de réponse :
 {
-  "reflexion": "string", "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "detectee": true,
-  "type": "filante" | "isolees" | "radier" | "inconnue",
-  "filante": { "largeur": number|null, "hauteur": number|null, "lineaire": number|null } | null,
-  "semelles": [ { "type": "string (S1, S2…)", "nb": number, "L": number|null, "l": number|null, "h": number|null, "prof": number|null, "confiance": "haute"|"basse" } ],
-  "avantPoteaux": [ { "nom": "string|null (P1…)", "nb": number, "a": number|null, "b": number|null, "H": number|null, "confiance": "haute"|"basse" } ],
-  "chainages": [ { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ],
-  "longrines": [ { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ],
-  "banche": { "b": number|null, "h": number|null } | null,
-  "moellons": { "b": number|null, "h": number|null } | null,
-  "herisson": true|false|null,
-  "radier": { "ep": number|null } | null,
-  "proprete": { "ep": number|null } | null,
-  "profondeurFouille": number|null,
-  "prescriptions": ["string"]
-}`,
+  "reflexion": "string (tes observations préliminaires, la liste des vues, etc.)",
+  "titre": "string ou null (titre du projet si lisible)",
+  "ville": "string ou null",
+  "confiance": "haute" | "moyenne" | "basse",
+  "incertitudes": ["chaque cote illisible, vue manquante ou ambiguïté, en une phrase"],
+  "toitTerrasseDetecte": true | false,
+  "niveaux": [
+    {
+      "nom": "string (ex: Rez-de-chaussée)",
+      "HSP": number | null,
+      "surfPlancher": number | null (UNIQUEMENT si une surface est écrite sur le plan, sinon null),
+      "pieces": [
+        { "nom": "string", "L": number|null, "l": number|null, "confiance": "haute"|"basse" }
+      ],
+      "murs": [
+        { "nom": "string (ex: Façade sud, Mur cuisine/SDB)",
+          "type": "brique10"|"agglo10"|"agglo15"|"agglo20"|"inconnu",
+          "L": number|null, "H": number|null,
+          "position": "exterieur"|"interieur"|"mitoyen",
+          "portes": number, "fenetres": number,
+          "confiance": "haute"|"basse" }
+      ],
+      "poteaux": [
+        { "nb": number, "a": number|null, "b": number|null, "H": number|null, "confiance": "haute"|"basse" }
+      ],
+      "poutres": [
+        { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" }
+      ]
+    }
+  ],
+  "fondations": {
+    "detectee": true | false,
+    "type": "filante" | "isolees" | "radier" | "inconnue",
+    "semelles": [
+      { "type": "string (S1, S2…)", "nb": number, "L": number|null, "l": number|null,
+        "h": number|null, "prof": number|null, "confiance": "haute"|"basse" }
+    ],
+    "chainages": [ { "nom": "string|null", "nb": number, "L": number|null, "confiance": "haute"|"basse" } ],
+    "longrines": [ { "nom": "string|null", "nb": number, "L": number|null, "confiance": "haute"|"basse" } ]
+  }
+}`
 
-  plan: `${ENTETE("PLAN D'UN SEUL NIVEAU (vue en plan par étage)")}
-CODES À RECONNAÎTRE : portes P1, P2… (arc de cercle = sens d'ouverture) ; fenêtres / baies F1, F2… ou B1, B2… ;
-pièces = nom + surface (ex : « Chambre 1 — 12,5 m2 ») ; niveaux RDC, R+1, R+2… ; axes de trame (lettres / chiffres).
-ANNOTATIONS : l'épaisseur des murs est cotée directement (15, 20, 25 cm) ; cotes cumulées et partielles.
-Types de murs d'après l'épaisseur : 0,10 m → "brique10" ou "agglo10" ; 0,15 m → "agglo15" ; 0,20 m → "agglo20" ;
-toute autre épaisseur (ex : 0,25 m) ou inconnue → "inconnu" + une entrée dans "incertitudes".
-Les poteaux sont les sections pochées (noircies) : compte-les et relève leurs sections.
-HSP : null sauf si elle est ÉCRITE sur ce plan (elle se lit normalement sur la coupe).
-"surfPlancher" : UNIQUEMENT si une surface totale du niveau est écrite, sinon null.
-Compte les portes et fenêtres de chaque mur d'après leurs repères (P<n>, F<n>/B<n>).
+const PROMPT_LOCATOR = `Tu es un expert en lecture de plans BTP. Ton objectif est d'identifier toutes les vues distinctes présentes sur cette image de plan architectural.
+Pour chaque vue détectée (ex: plan du RDC, plan de l'étage, coupe, façade, plan des fondations), donne-moi ses coordonnées sous la forme d'une bounding box en pixels absolus [x1, y1, x2, y2], où (x1, y1) est le coin supérieur gauche et (x2, y2) le coin inférieur droit de la vue.
+Assure-toi d'englober toute la vue, y compris ses cotes extérieures et son titre.
+
+Réponds STRICTEMENT avec un unique objet JSON valide selon ce schéma :
+{
+  "vues": [
+    {
+      "nom": "string (ex: 'Plan RDC', 'Coupe')",
+      "box": [number, number, number, number]
+    }
+  ]
+}`
+
+const PROMPT_NIVEAU = `Tu es un opérateur de saisie pour un logiciel de métré BTP. Ce plan correspond
+à UN SEUL niveau d'un bâtiment.
+
+${REGLES_COMMUNES}
 
 Schéma de réponse :
 {
-  "reflexion": "string", "nom": "string (RDC, R+1… ; \\"Niveau\\" si illisible)", "HSP": number|null, "surfPlancher": number|null,
-  "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "toitTerrasseDetecte": true|false,
+  "reflexion": "string (tes observations préliminaires, etc.)",
+  "nom": "string (nom du niveau si lisible, sinon \"Niveau\")",
+  "HSP": number | null,
+  "confiance": "haute" | "moyenne" | "basse",
+  "incertitudes": ["…"],
   "pieces": [ { "nom": "string", "L": number|null, "l": number|null, "confiance": "haute"|"basse" } ],
-  "murs":   [ { "nom": "string", "type": "brique10"|"agglo10"|"agglo15"|"agglo20"|"inconnu", "L": number|null, "H": number|null,
-                "position": "exterieur"|"interieur"|"mitoyen", "portes": number, "fenetres": number, "confiance": "haute"|"basse" } ],
+  "murs":   [ { "nom": "string", "type": "brique10"|"agglo10"|"agglo15"|"agglo20"|"inconnu",
+                "L": number|null, "H": number|null, "position": "exterieur"|"interieur"|"mitoyen",
+                "portes": number, "fenetres": number, "confiance": "haute"|"basse" } ],
   "poteaux": [ { "nb": number, "a": number|null, "b": number|null, "H": number|null, "confiance": "haute"|"basse" } ]
-}`,
+}`
 
-  coupe: `${ENTETE('COUPE (dessin de détail)')}
-CODES À RECONNAÎTRE : repère de coupe A-A / B-B ; HSP = hauteur sous plafond ; NF = niveau fini ; NGF = niveau général ;
-TN = terrain naturel ; hachures différentes par matériau (béton plein, terre, isolant, bois, gros béton) ;
-cotes de niveau en cercle ou triangle à chaque changement de niveau.
-Relève, pour CHAQUE niveau visible sur la coupe, sa HSP (cotes verticales, mention "HSP=…"), sa cote NF si lisible
-et l'épaisseur de son plancher haut si elle est cotée. "profondeurFondation" : profondeur de la base des fondations
-sous le TN, en valeur POSITIVE, si elle est cotée. Indique si un acrotère / une terrasse est visible.
-
-Schéma de réponse :
-{
-  "reflexion": "string", "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "toitTerrasseDetecte": true|false,
-  "niveaux": [ { "nom": "string (RDC, R+1…)", "HSP": number|null, "NF": number|null, "epDalle": number|null, "confiance": "haute"|"basse" } ],
-  "profondeurFondation": number|null
-}`,
-
-  plomberie: `${ENTETE('PLAN DE PLOMBERIE')}
-RÉSEAUX : EF = eau froide ; EC = eau chaude ; EU = eaux usées ; EV = eaux vannes ; EP = eaux pluviales ; AEP = adduction eau potable.
-APPAREILS (pictogrammes ISO 4067) : WC, lavabo, douche, baignoire, évier — compte-les UN PAR UN, pièce par pièce.
-"Ø" suivi d'un nombre = diamètre de canalisation en MILLIMÈTRES (Ø100 → 100) ; pente d'évacuation en % avec flèche (→ nombre en %) ;
-regard = cercle ou carré avec "R" + numéro.
-Pour chaque tronçon de canalisation, relève : réseau, diamètre, longueur (cote lue, sinon déduite de l'échelle avec confiance "basse"), pente.
-Ne regroupe pas des tronçons de diamètres différents.
-
-Schéma de réponse :
-{
-  "reflexion": "string", "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "appareils": [ { "type": "wc"|"lavabo"|"douche"|"baignoire"|"evier"|"autre", "nb": number, "piece": "string|null", "confiance": "haute"|"basse" } ],
-  "reseaux": [ { "reseau": "EF"|"EC"|"EU"|"EV"|"EP"|"AEP", "diam": number|null, "L": number|null, "pente": number|null, "nom": "string|null", "confiance": "haute"|"basse" } ],
-  "regards": [ { "nom": "string|null", "nb": number, "confiance": "haute"|"basse" } ]
-}`,
-
-  electricite: `${ENTETE("PLAN D'ÉLECTRICITÉ (NF C 15-100 / IEC 60617)")}
-SYMBOLES : point lumineux = cercle simple ; interrupteur simple = symbole avec petit crochet ; va-et-vient (VV) = symbole à deux positions ;
-bouton poussoir = symbole avec petit « T » ; prise de courant 16 A = symbole normalisé avec terre ; prise spécialisée = symbole avec
-indication de puissance / circuit dédié ; prise RJ45 / VDI = carré ou rectangle avec mention RJ45 ; tableau = TGBT (général) ou TD (divisionnaire).
-Les traits pointillés relient un interrupteur aux points qu'il commande : ce ne sont PAS des éléments à compter.
-Sur un schéma unifilaire, un trait oblique + chiffre = nombre de conducteurs : ne le compte pas.
-Utilise la LÉGENDE du plan (en marge) pour identifier les symboles. Compte chaque symbole, pièce par pièce.
-
-Schéma de réponse :
-{
-  "reflexion": "string", "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "elements": [ { "type": "point_lumineux"|"interrupteur_simple"|"va_et_vient"|"bouton_poussoir"|"prise_16a"|"prise_specialisee"|"rj45"|"tableau",
-                  "nb": number, "piece": "string|null", "repere": "string|null (TGBT/TD pour un tableau, usage ou puissance pour une prise spécialisée)",
-                  "confiance": "haute"|"basse" } ]
-}`,
-
-  poutraison: `${ENTETE('PLAN DE POUTRAISON ET NERVURES (un seul niveau)')}
-DÉSIGNATIONS : poutres P<n>(largeur×hauteur) — ex. P1(20x40) → b 0.20, h 0.40 — ou un numéro suivi de la section entre parenthèses ;
-nervures / poutrelles N1, N2… (trait d'axe fort) ; chevêtres = renforts autour des réservations / trémies.
-ANNOTATIONS : sens de portée (flèches) ; entraxe des nervures coté (ex : 60 cm entre axes → 0.60) ;
-épaisseur de plancher composée « (16+4) » = 16 cm de hourdis + 4 cm de dalle de compression.
-EXCEPTION d'unité : pour "plancher", donne "hourdis" et "compression" en CENTIMÈTRES tels qu'écrits (16 et 4), pas en mètres.
-"nervures" : nombre total lu (nb), longueur d'une nervure courante (L) si elle est uniforme (sinon null + incertitude), entraxe.
-
-Schéma de réponse :
-{
-  "reflexion": "string", "niveau": "string (RDC, R+1… ; \\"Niveau\\" si illisible)", "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "poutres": [ { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ],
-  "nervures": { "nb": number|null, "L": number|null, "entraxe": number|null } | null,
-  "plancher": { "hourdis": number|null, "compression": number|null } | null,
-  "chevetres": number|null
-}`,
-
-  toiture: `${ENTETE('PLAN DE TOITURE')}
-DÉSIGNATIONS : pente indiquée en % avec flèche de sens d'écoulement (→ nombre en %, ex : 30) ; faîtage, noue, égout, chéneau
-(lignes conventionnelles) ; débord de toit coté depuis le nu du mur (en m).
-Relève la pente générale si elle est unique, sinon une entrée par pan avec sa pente. "surface" d'un pan = surface EN PLAN (projection
-horizontale) UNIQUEMENT si elle est écrite. Sinon relève les dimensions hors-tout du bâtiment (L, l) et le débord.
-Relève la longueur de chaque faîtage, noue, égout et chéneau lue ou cotée.
-Indique "toitTerrasseDetecte": true si le plan montre un toit-terrasse (acrotère, mention terrasse, étanchéité).
-
-Schéma de réponse :
-{
-  "reflexion": "string", "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "toitTerrasseDetecte": true|false,
-  "pente": number|null,
-  "pans": [ { "nom": "string|null", "pente": number|null, "surface": number|null } ],
-  "L": number|null, "l": number|null, "debord": number|null, "surfaceProjetee": number|null,
-  "faitages": [ { "nom": "string|null", "L": number|null } ],
-  "noues":    [ { "nom": "string|null", "L": number|null } ],
-  "egouts":   [ { "nom": "string|null", "L": number|null } ],
-  "cheneaux": [ { "nom": "string|null", "L": number|null } ]
-}`,
-
-  coffrage: `${ENTETE('PLAN DE COFFRAGE (un seul niveau)')}
-DÉSIGNATIONS : poteaux P<n> (carré, rond ou rectangulaire, en coupe, trait fort ; même repère sur toute la hauteur du bâtiment) ;
-poutres = numéro + section entre parenthèses, largeur × hauteur (ex : 1(20x40) → b 0.20, h 0.40 ; un chiffre additionnel peut indiquer
-l'étage : 101 = poutre 1 du 1er étage) ; voiles V<n> avec épaisseur (15, 18, 20, 25 cm) ; dalles D<n> avec épaisseur entre deux cercles
-en trait fin (16, 18, 20, 22 cm) ; longrines L<n> / LN<n> (niveau fondation) ; linteaux L<n> (au-dessus des baies) ;
-chaînages verticaux CV<n> ; consoles C<n> avec section comme une poutre.
-TRAME : axes en lettres (A, B, C…) et chiffres (1, 2, 3…), entraxes cotés (souvent 4,50 à 6,00 m) ; nœud = intersection (ex : B-3).
-Une longueur de poutre = entraxe entre appuis : si tu la déduis de la trame, confiance "basse".
-Poteau circulaire : forme "rond" et a = b = diamètre. Poteau carré / rectangulaire : forme "carre" ou "rect".
-Dalles : donne l'épaisseur, et la surface si elle est écrite, sinon les deux cotes L × l du panneau rectangulaire (jamais un produit calculé).
-Compte un poteau par repère (ex : 4 poteaux P1 de même section → nb 4).
-
-Schéma de réponse :
-{
-  "reflexion": "string", "niveau": "string (RDC, R+1… ; \\"Niveau\\" si illisible)", "confiance": "haute"|"moyenne"|"basse", "incertitudes": ["…"],
-  "poteaux":  [ { "nom": "string|null (P1…)", "forme": "carre"|"rect"|"rond", "nb": number, "a": number|null, "b": number|null, "H": number|null, "confiance": "haute"|"basse" } ],
-  "poutres":  [ { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ],
-  "voiles":   [ { "nom": "string|null (V1…)", "nb": number, "L": number|null, "ep": number|null, "H": number|null, "confiance": "haute"|"basse" } ],
-  "dalles":   [ { "nom": "string|null (D1…)", "ep": number|null, "surface": number|null, "L": number|null, "l": number|null, "confiance": "haute"|"basse" } ],
-  "longrines": [ { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ],
-  "chainagesV": [ { "nom": "string|null (CV1…)", "nb": number, "a": number|null, "b": number|null, "H": number|null, "confiance": "haute"|"basse" } ],
-  "consoles": [ { "nom": "string|null (C1…)", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ]
-}`,
-}
-
-/** Prompt d'extraction propre à un type de plan. */
-export const promptPour = (type) => PROMPTS[type]
-
-const PROMPT_VERIF = (json) => `Voici une vue de plan et une extraction JSON qui prétend la décrire.
-Relis la vue INDÉPENDAMMENT et compare : signale toute valeur de l'extraction qui te
-semble erronée ou inventée, et toute donnée importante de la vue absente de l'extraction.
+const PROMPT_VERIF = (json) => `Voici un plan et une extraction JSON qui prétend le décrire.
+Relis le plan INDÉPENDAMMENT et compare : signale toute valeur de l'extraction qui te
+semble erronée ou inventée, et toute donnée importante du plan absente de l'extraction.
 
 Extraction à contrôler :
 ${json}
@@ -252,7 +136,6 @@ const ERRORS = {
   parse: "Le plan n'a pas pu être interprété (cotes ou échelle illisibles).",
 }
 
-// ── Images ───────────────────────────────────────────────────────────────────
 export function readBase64(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader()
@@ -266,17 +149,23 @@ async function rasterizePDF(file) {
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   const images = []
+  
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
     let viewport = page.getViewport({ scale: 1 })
     const maxDim = Math.max(viewport.width, viewport.height)
-    // ~3500 px max pour éviter la saturation mémoire tout en gardant une bonne qualité (A0)
+    // On cible max ~3500px pour éviter la saturation mémoire, tout en gardant une excellente qualité (A0)
     const scale = Math.min(3, 3500 / maxDim)
     viewport = page.getViewport({ scale: Math.max(1.5, scale) })
+    
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
     canvas.height = viewport.height
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
+    const ctx = canvas.getContext('2d')
+    
+    await page.render({ canvasContext: ctx, viewport }).promise
+    
+    // JPEG 90% pour limiter la taille du payload envoyé au proxy
     images.push(canvas.toDataURL('image/jpeg', 0.90).split(',')[1])
   }
   return images
@@ -292,10 +181,11 @@ function loadImageFromBase64(b64, mimeType) {
 }
 
 function getLocatorImage(img) {
-  const maxDim = 1568 // limite de redimensionnement de l'API vision
+  const maxDim = 1568 // Limite de redimensionnement de l'API Claude 3 Vision
   const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
   const w = Math.round(img.width * scale)
   const h = Math.round(img.height * scale)
+  
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
@@ -303,21 +193,28 @@ function getLocatorImage(img) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, w, h)
   ctx.drawImage(img, 0, 0, w, h)
-  return { b64: canvas.toDataURL('image/jpeg', 0.85).split(',')[1], scaleUp: 1 / scale, w, h }
+  return {
+    b64: canvas.toDataURL('image/jpeg', 0.85).split(',')[1],
+    scaleUp: 1 / scale,
+    w, h
+  }
 }
 
 function cropImage(img, box, scaleUp) {
-  if (!Array.isArray(box) || box.length < 4) return null
   const x1 = Math.max(0, box[0] * scaleUp)
   const y1 = Math.max(0, box[1] * scaleUp)
   const x2 = Math.min(img.width, box[2] * scaleUp)
   const y2 = Math.min(img.height, box[3] * scaleUp)
+  
   const w = x2 - x1
   const h = y2 - y1
-  if (!(w > 10 && h > 10)) return null
+  if (w <= 10 || h <= 10) return null
+  
+  // Limiter le crop à 3500px max pour éviter un payload démesuré
   const scale = Math.min(1, 3500 / Math.max(w, h))
   const cw = Math.round(w * scale)
   const ch = Math.round(h * scale)
+
   const canvas = document.createElement('canvas')
   canvas.width = cw
   canvas.height = ch
@@ -328,7 +225,7 @@ function cropImage(img, box, scaleUp) {
   return canvas.toDataURL('image/jpeg', 0.90).split(',')[1]
 }
 
-export function parseJSON(text) {
+function parseJSON(text) {
   const clean = (text || '').replace(/```json/gi, '').replace(/```/g, '').trim()
   const start = clean.indexOf('{')
   const end = clean.lastIndexOf('}')
@@ -336,136 +233,223 @@ export function parseJSON(text) {
   return JSON.parse(clean.slice(start, end + 1))
 }
 
-async function callModel(messages) {
-  const res = await api.analysePlan(messages)
-  if (!res) throw Object.assign(new Error(ERRORS.offline), { code: 'offline' })
-  if (res.error) throw Object.assign(new Error(ERRORS[res.error] || `Erreur : ${res.error}`), { code: res.error })
-  return (res.content || []).map((b) => b.text || '').join('\n')
-}
-
-const mediaJpeg = (b64) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } })
-
-async function chargerImages(file) {
-  if (file.type === 'application/pdf') {
-    const pages = await rasterizePDF(file)
-    const imgs = []
-    for (const b64 of pages) imgs.push(await loadImageFromBase64(b64, 'image/jpeg'))
-    return imgs
-  }
-  return [await loadImageFromBase64(await readBase64(file), file.type)]
-}
-
 /**
- * Lecture de tous les plans déposés, par type.
- * @param {Object<string, File[]>} depots  { fondation: [File], plan: [File, File], … }
- * @param {{verifier?: boolean, onProgress?: (p: {fait: number, total: number, message: string}) => void}} opts
- * @returns {Promise<{ok: true, data: Object} | {ok: false, code?: string, message: string}>}
+ * Analyse un fichier de plan → extraction de données brutes (jamais de quantités).
+ * @param {File} file
+ * @param {'projet'|'niveau'} mode
+ * @param {{verifier?: boolean}} opts - verifier: seconde passe de relecture indépendante (A8)
  */
-export async function analyzePlans(depots = {}, opts = {}) {
-  const { verifier = true, onProgress = () => {} } = opts
-  const fichiers = []
-  for (const type of CLES_TYPES_PLANS) for (const file of depots[type] || []) fichiers.push({ type, file })
-  if (!fichiers.length) return { ok: false, message: 'Aucun plan déposé.' }
+export async function analyzePlan(file, mode = 'projet', opts = {}) {
+  if (!file) return { ok: false, message: 'Aucun fichier sélectionné.' }
+  if (!PLAN_ACCEPTS.includes(file.type))
+    return { ok: false, code: 'format', message: 'Format non supporté. Utilisez un PDF ou une image (PNG, JPG, WEBP).' }
+  if (file.size > PLAN_MAX_MB * 1024 * 1024)
+    return { ok: false, code: 'size', message: `Fichier trop lourd (max ${PLAN_MAX_MB} Mo).` }
 
-  for (const { file } of fichiers) {
-    if (!PLAN_ACCEPTS.includes(file.type)) return { ok: false, code: 'format', message: `« ${file.name} » : format non supporté. Utilisez un PDF ou une image (PNG, JPG, WEBP).` }
-    if (file.size > PLAN_MAX_MB * 1024 * 1024) return { ok: false, code: 'size', message: `« ${file.name} » : fichier trop lourd (max ${PLAN_MAX_MB} Mo).` }
+  let originalImages = []
+  try {
+    if (file.type === 'application/pdf') {
+      const b64Array = await rasterizePDF(file)
+      for (const b64 of b64Array) {
+        originalImages.push(await loadImageFromBase64(b64, 'image/jpeg'))
+      }
+    } else {
+      const data64 = await readBase64(file)
+      originalImages.push(await loadImageFromBase64(data64, file.type))
+    }
+  } catch (e) {
+    return { ok: false, message: e.message || ERRORS.parse }
   }
 
-  const lectures = []
-  let fait = 0
-  const total = fichiers.length
-  const dire = (message) => onProgress({ fait, total, message })
+  const callModel = async (messages) => {
+    const res = await api.analysePlan(messages)
+    if (!res) throw Object.assign(new Error(ERRORS.offline), { code: 'offline' })
+    if (res.error) throw Object.assign(new Error(ERRORS[res.error] || `Erreur : ${res.error}`), { code: res.error })
+    return (res.content || []).map((b) => b.text || '').join('\n')
+  }
+
+  let parsed = {
+    titre: null, ville: null, confiance: 'haute', incertitudes: [],
+    toitTerrasseDetecte: false, niveaux: [], fondations: { detectee: false, semelles: [], chainages: [], longrines: [] }
+  }
 
   try {
-    for (const { type: typeDepose, file } of fichiers) {
-      dire(`Ouverture de « ${file.name} »…`)
-      let images
-      try { images = await chargerImages(file) } catch (e) { return { ok: false, message: `« ${file.name} » : ${e.message || ERRORS.parse}` } }
-
-      for (let pi = 0; pi < images.length; pi++) {
-        const img = images[pi]
-        const page = images.length > 1 ? ` (page ${pi + 1}/${images.length})` : ''
-        dire(`Repérage des vues — ${TYPES_PLANS[typeDepose].court} · ${file.name}${page}`)
-
-        // Passe 1 : locator (vues + classification par cartouche et codes lus)
+    if (mode === 'projet') {
+      for (const img of originalImages) {
+        // Passe 1 : Locator
         const loc = getLocatorImage(img)
-        let vues
+        const locMedia = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: loc.b64 } }
+        const locText = await callModel([{ role: 'user', content: [locMedia, { type: 'text', text: PROMPT_LOCATOR }] }])
+        
+        let locParsed
         try {
-          const lp = parseJSON(await callModel([{ role: 'user', content: [mediaJpeg(loc.b64), { type: 'text', text: PROMPT_LOCATOR }] }]))
-          vues = Array.isArray(lp.vues) && lp.vues.length ? lp.vues : null
-        } catch (e) {
-          if (e.code) throw e
+          locParsed = parseJSON(locText)
+        } catch(e) {
+          locParsed = { vues: [ { nom: "Plan entier", box: [0, 0, loc.w, loc.h] } ] }
         }
-        if (!vues) vues = [{ nom: 'Plan entier', type: null, cartouche: null, codes: [], box: [0, 0, loc.w, loc.h] }]
-
-        // Passe 2 : routage + extraction propre au type (séquentiel : évite un timeout du proxy)
+        
+        const vues = (locParsed.vues && locParsed.vues.length > 0) ? locParsed.vues : [ { nom: "Plan entier", box: [0, 0, loc.w, loc.h] } ]
+        
+        // Passe 2 : Extraction par sous-vue (Séquentiel pour éviter un Timeout backend)
         for (const vue of vues) {
-          const route = routerPlan({ typeDepose, typeIA: vue.type, cartouche: vue.cartouche, codes: vue.codes })
-          const trace = {
-            nom: vue.nom || 'Vue', fichier: file.name, typeDepose, type: route.type,
-            reclasse: route.reclasse, source: route.source, confiance: route.confiance, message: route.message,
-          }
-          if (!route.type) { lectures.push({ type: null, data: null, vue: trace }); continue }
-
-          dire(`Lecture « ${TYPES_PLANS[route.type].court} » — ${vue.nom || 'vue'}${route.reclasse ? ' (reclassée)' : ''}`)
           const cropB64 = cropImage(img, vue.box, loc.scaleUp)
-          if (!cropB64) { lectures.push({ type: null, data: null, vue: { ...trace, message: `Vue « ${vue.nom} » trop petite ou mal délimitée : ignorée.` } }); continue }
-
-          let data
+          if (!cropB64) continue
+          
+          const cropMedia = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: cropB64 } }
+          const text = await callModel([{ role: 'user', content: [cropMedia, { type: 'text', text: PROMPT_PROJET }] }])
+          
           try {
-            data = parseJSON(await callModel([{ role: 'user', content: [mediaJpeg(cropB64), { type: 'text', text: PROMPTS[route.type] }] }]))
+            const subRes = parseJSON(text)
+            // Fusionner les données de la sous-vue dans l'objet global
+            if (subRes.titre && !parsed.titre) parsed.titre = subRes.titre
+            if (subRes.ville && !parsed.ville) parsed.ville = subRes.ville
+            if (subRes.toitTerrasseDetecte) parsed.toitTerrasseDetecte = true
+            if (subRes.confiance === 'basse' || subRes.confiance === 'moyenne') parsed.confiance = 'basse'
+            if (subRes.incertitudes) parsed.incertitudes.push(...subRes.incertitudes)
+            if (subRes.niveaux) parsed.niveaux.push(...subRes.niveaux)
+            if (subRes.fondations && subRes.fondations.detectee) {
+              parsed.fondations.detectee = true
+              if (subRes.fondations.type && !parsed.fondations.type) parsed.fondations.type = subRes.fondations.type
+              if (subRes.fondations.semelles) parsed.fondations.semelles.push(...subRes.fondations.semelles)
+              if (subRes.fondations.chainages) parsed.fondations.chainages.push(...subRes.fondations.chainages)
+              if (subRes.fondations.longrines) parsed.fondations.longrines.push(...subRes.fondations.longrines)
+            }
           } catch (e) {
-            if (e.code) throw e
-            lectures.push({ type: null, data: null, vue: { ...trace, message: `Échec de lecture de la vue « ${vue.nom} » (${TYPES_PLANS[route.type].court}).` } })
-            continue
+            parsed.incertitudes.push(`Échec de lecture de la vue: ${vue.nom}`)
           }
-
-          // Double lecture indépendante (bonus : son échec n'invalide pas l'extraction)
-          if (verifier) {
-            try {
-              dire(`Relecture indépendante — ${TYPES_PLANS[route.type].court} · ${vue.nom || 'vue'}`)
-              const verif = parseJSON(await callModel([{ role: 'user', content: [mediaJpeg(cropB64), { type: 'text', text: PROMPT_VERIF(JSON.stringify(data)) }] }]))
-              if (Array.isArray(verif.ecarts) && verif.ecarts.length) {
-                data.incertitudes = [...(Array.isArray(data.incertitudes) ? data.incertitudes : []), ...verif.ecarts.map((e) => `Relecture (${TYPES_PLANS[route.type].court}) : ${e}`)]
-                data.confiance = 'basse'
-              }
-            } catch (e) { if (e.code && e.code !== 'parse') throw e }
-          }
-          lectures.push({ type: route.type, data, vue: trace })
         }
       }
-      fait += 1
-      dire(`« ${file.name} » lu.`)
+    } else {
+      // Mode niveau (un seul envoi)
+      const loc = getLocatorImage(originalImages[0])
+      const media = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: loc.b64 } }
+      const text = await callModel([{ role: 'user', content: [media, { type: 'text', text: PROMPT_NIVEAU }] }])
+      parsed = parseJSON(text)
     }
   } catch (e) {
     if (e.code) return { ok: false, code: e.code, message: e.message }
     return { ok: false, code: 'parse', message: ERRORS.parse }
   }
 
-  const ex = consolider(lectures)
-  if (estVide(ex)) return { ok: false, code: 'empty', message: 'Aucune donnée exploitable détectée sur les plans déposés.' }
-  return { ok: true, data: ex }
+  // Normalisation minimale
+  if (mode === 'projet') {
+    parsed.niveaux = Array.isArray(parsed.niveaux) ? parsed.niveaux : []
+    parsed.incertitudes = Array.isArray(parsed.incertitudes) ? parsed.incertitudes : []
+    parsed.fondations = parsed.fondations || { detectee: false }
+    const vide = parsed.niveaux.every((n) => !(n.pieces?.length || n.murs?.length || n.poteaux?.length))
+    if (!parsed.niveaux.length || vide)
+      return { ok: false, code: 'empty', message: 'Aucune donnée exploitable détectée sur ce plan.' }
+    if (!parsed.fondations.detectee) {
+      parsed.incertitudes.push("Aucune vue FONDATIONS lue : les semelles/chaînages devront être saisis manuellement dans l'onglet Niveaux & métré.")
+    }
+
+    // Validation des bornes physiques (force la confiance à 'basse' pour alerter l'utilisateur)
+    parsed.niveaux.forEach((n) => {
+      ;(n.pieces || []).forEach(p => {
+        if ((p.L && p.L > 50) || (p.l && p.l > 50)) p.confiance = 'basse'
+      })
+      ;(n.murs || []).forEach(m => {
+        if ((m.H && (m.H < 0.5 || m.H > 10)) || (m.L && m.L > 100)) m.confiance = 'basse'
+      })
+      ;(n.poteaux || []).forEach(pt => {
+        if ((pt.a && pt.a > 1) || (pt.b && pt.b > 1) || (pt.H && pt.H > 10)) pt.confiance = 'basse'
+      })
+    })
+    if (parsed.fondations && parsed.fondations.semelles) {
+      parsed.fondations.semelles.forEach(s => {
+        if ((s.L && s.L > 5) || (s.l && s.l > 5) || (s.h && s.h > 2)) s.confiance = 'basse'
+      })
+    }
+  } else {
+    parsed.incertitudes = Array.isArray(parsed.incertitudes) ? parsed.incertitudes : []
+    if (!(parsed.pieces?.length || parsed.murs?.length))
+      return { ok: false, code: 'empty', message: 'Aucune pièce ni mur détecté sur ce plan de niveau.' }
+  }
+
+  // Seconde passe de vérification indépendante (A8) — optionnelle
+  if (opts.verifier && mode === 'projet') {
+    try {
+      // Pour éviter de renvoyer tous les crops, on envoie juste la vue globale (locator)
+      const loc = getLocatorImage(originalImages[0])
+      const media = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: loc.b64 } }
+      const text2 = await callModel([{ role: 'user', content: [media, { type: 'text', text: PROMPT_VERIF(JSON.stringify(parsed)) }] }])
+      const verif = parseJSON(text2)
+      if (Array.isArray(verif.ecarts) && verif.ecarts.length) {
+        parsed.incertitudes.push(...verif.ecarts.map((e) => `Relecture : ${e}`))
+        parsed.confiance = 'basse'
+      }
+    } catch { /* la vérification est un bonus : son échec n'invalide pas l'extraction */ }
+  }
+
+  return { ok: true, data: parsed }
+}
+
+// ── Normalisation vers le modèle interne ────────────────────────────────────
+
+const n0 = (v) => (v === null || v === undefined || v === '' || isNaN(+v) ? '' : +v)
+
+export function normPiece(p) {
+  return { nom: p.nom || 'Pièce', L: n0(p.L), l: n0(p.l), H: '', portes: n0(p.portes) || '', fenetres: n0(p.fenetres) || '', confiance: p.confiance || 'basse' }
+}
+export function normMur(m) {
+  const type = ['brique10', 'agglo10', 'agglo15', 'agglo20'].includes(m.type) ? m.type : 'agglo15'
+  return {
+    nom: m.nom || 'Mur', type, nb: 1,
+    L: n0(m.L), H: n0(m.H),
+    position: ['exterieur', 'interieur', 'mitoyen'].includes(m.position) ? m.position : 'interieur',
+    portes: n0(m.portes) || 0, fenetres: n0(m.fenetres) || 0,
+    confiance: m.confiance || 'basse',
+    _typeInconnu: m.type === 'inconnu',
+  }
+}
+export function normPoteau(pt) {
+  return { nom: pt.nom || '', nb: n0(pt.nb) || 1, a: n0(pt.a), b: n0(pt.b), H: n0(pt.H), confiance: pt.confiance || 'basse' }
+}
+export function normPoutre(pu) {
+  return { nom: pu.nom || '', nb: n0(pu.nb) || 1, L: n0(pu.L), b: n0(pu.b), h: n0(pu.h), confiance: pu.confiance || 'basse' }
+}
+export function normSemelle(s) {
+  return { type: s.type || 'S', nb: n0(s.nb) || 1, L: n0(s.L), l: n0(s.l), h: n0(s.h), prof: n0(s.prof), confiance: s.confiance || 'basse' }
+}
+export function normLineaire(c) {
+  return { nom: c.nom || '', nb: n0(c.nb) || 1, L: n0(c.L), b: 0.2, h: 0.2, confiance: c.confiance || 'basse' }
 }
 
 /**
- * Lecture d'un plan d'UN seul niveau (import rapide depuis l'onglet « Niveaux & métré »).
- * Même extracteur « vue en plan » que le dépôt par type, sans passe de repérage.
- * @returns {Promise<{ok: true, data: Object} | {ok: false, code?: string, message: string}>}
+ * Convertit une extraction VALIDÉE par l'utilisateur (écran « Vérifier la lecture »)
+ * en niveaux + correctifs de paramètres pour le moteur.
  */
-export async function analyzeNiveau(file) {
-  if (!file) return { ok: false, message: 'Aucun fichier sélectionné.' }
-  if (!PLAN_ACCEPTS.includes(file.type)) return { ok: false, code: 'format', message: 'Format non supporté. Utilisez un PDF ou une image (PNG, JPG, WEBP).' }
-  if (file.size > PLAN_MAX_MB * 1024 * 1024) return { ok: false, code: 'size', message: `Fichier trop lourd (max ${PLAN_MAX_MB} Mo).` }
-  try {
-    const [img] = await chargerImages(file)
-    const loc = getLocatorImage(img)
-    const data = parseJSON(await callModel([{ role: 'user', content: [mediaJpeg(loc.b64), { type: 'text', text: PROMPTS.plan }] }]))
-    data.incertitudes = Array.isArray(data.incertitudes) ? data.incertitudes : []
-    if (!(data.pieces?.length || data.murs?.length)) return { ok: false, code: 'empty', message: 'Aucune pièce ni mur détecté sur ce plan de niveau.' }
-    return { ok: true, data }
-  } catch (e) {
-    if (e.code) return { ok: false, code: e.code, message: e.message }
-    return { ok: false, code: 'parse', message: ERRORS.parse }
+export function extractionToProject(ex) {
+  const levels = (ex.niveaux || []).map((n, i) => ({
+    nom: n.nom || `Niveau ${i}`,
+    rez: i === 0,
+    HSP: n0(n.HSP) || '',
+    surfPlancher: n0(n.surfPlancher) || '',
+    tremies: '',
+    plancher: i === 0 && (ex.niveaux || []).length === 1 ? 'dallePleine' : 'hourdis15',
+    pieces: (n.pieces || []).map(normPiece),
+    murs: (n.murs || []).map(normMur),
+    poteaux: (n.poteaux || []).map(normPoteau),
+    poutres: (n.poutres || []).map(normPoutre),
+  }))
+
+  const fondDet = ex.fondations || {}
+  const patchParams = {
+    planFlags: { toitTerrasseDetecte: !!ex.toitTerrasseDetecte },
   }
+  if (ex.toitTerrasseDetecte) patchParams.toiture = 'terrasse'
+
+  const aDesPoteaux = levels.some((lv) => lv.poteaux.length)
+  patchParams.systeme = aDesPoteaux ? 'ossature' : 'murs'
+
+  if (fondDet.detectee) {
+    patchParams.fondation = {
+      type: ['filante', 'isolees', 'radier'].includes(fondDet.type) ? fondDet.type : (fondDet.semelles?.length ? 'isolees' : 'filante'),
+      semelles: (fondDet.semelles || []).map(normSemelle),
+      chainages: (fondDet.chainages || []).map(normLineaire),
+      longrines: (fondDet.longrines || []).map(normLineaire),
+    }
+  }
+
+  return { levels, patchParams }
 }

@@ -6,7 +6,7 @@ import React, { useMemo, useState } from 'react'
 import { AlertTriangle, AlertOctagon, Info, ChevronDown, ListTree } from 'lucide-react'
 import { Card, SectionTitle, Badge } from '../ui/index.jsx'
 import { buildDQE } from '../../lib/metre.js'
-import { buildSousDetail } from '../../lib/metre.js'
+import { buildSousDetail } from '../../lib/sousDetail.js'
 import { fmtCFA, fmtNum } from '../../lib/format.js'
 
 const ALERTE_STYLE = {
@@ -15,7 +15,7 @@ const ALERTE_STYLE = {
   info:      { Icon: Info,          cls: 'bg-lagune-soft border-lagune/25 text-lagune-deep' },
 }
 
-export default function TabDQE({ totaux, prix, params, alertes = [], prixInfo }) {
+export default function TabDQE({ totaux, prix, params, alertes = [] }) {
   const [ouverts, setOuverts] = useState({})
   const prixMap = useMemo(() => Object.fromEntries(prix.map((p) => [p.code, p.pu])), [prix])
   const dqe = useMemo(() => buildDQE(totaux, prixMap, params.K || 1.3), [totaux, prixMap, params.K])
@@ -57,18 +57,6 @@ export default function TabDQE({ totaux, prix, params, alertes = [], prixInfo })
             </p>
           )}
         </Card>
-      )}
-
-      {/* ── Postes métrés mais sans prix : le total est incomplet ── */}
-      {dqe.sansPrix?.length > 0 && (
-        <div className="rounded-xl2 border px-3.5 py-3 flex gap-2.5 text-[13px] bg-laterite-soft border-laterite/30 text-laterite-deep">
-          <AlertOctagon size={16} className="shrink-0 mt-0.5" />
-          <span>
-            <b>Total incomplet :</b> {dqe.sansPrix.length} poste(s) métré(s) sans prix (0 FCFA) ne sont pas
-            comptés dans le total — {dqe.sansPrix.map((l) => `${l.n} ${l.des}`).join(' · ')}.
-            Renseignez-les dans l'onglet « Prix ».
-          </span>
-        </div>
       )}
 
       <Card className="p-5">
@@ -165,7 +153,7 @@ export default function TabDQE({ totaux, prix, params, alertes = [], prixInfo })
             </div>
           </div>
           <p className="text-[12px] text-muted mt-3">
-            Prix unitaires majorés par K = {params.K} (aléas + frais généraux + bénéfice). Base {prixInfo?.version || 'RPR'}.
+            Prix unitaires majorés par K = {params.K} (aléas + frais généraux + bénéfice). Base RPR 26.2.
             <b> Total gros œuvre uniquement, hors second œuvre.</b> Estimation indicative : ne remplace pas
             un métré d'exécution ni les prix réels du marché.
           </p>
