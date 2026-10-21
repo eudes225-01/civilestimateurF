@@ -8,6 +8,8 @@ import TabProjet from './components/tabs/TabProjet.jsx'
 import TabNiveaux from './components/tabs/TabNiveaux.jsx'
 import TabPrix from './components/tabs/TabPrix.jsx'
 import TabDQE from './components/tabs/TabDQE.jsx'
+import { estPayant, contenuAccessible, paywallAffiche } from './lib/acces.js'
+import { TRANSITION_MS } from './lib/transition.js'
 import TabExport from './components/tabs/TabExport.jsx'
 import { PRIX, PRIX_VERSION, PRIX_DATE } from './lib/metre.js'
 import { api } from './lib/api.js'
@@ -27,7 +29,7 @@ const TABS = [
   { k: 'niveaux', lab: 'Niveaux & métré', Ic: Layers,   col: 'lagune'   },
   { k: 'prix',    lab: 'Prix',              Ic: Table,    col: 'soleil'   },
   { k: 'dqe',     lab: 'DQE',               Ic: Ruler,    col: 'laterite' },
-  { k: 'export',  lab: 'Export PDF',        Ic: FileDown, col: 'jade',     payant: true },
+  { k: 'export',  lab: 'Export PDF',        Ic: FileDown, col: 'jade',     payant: estPayant('export') },
 ]
 
 const projVide = () => ({ titre: '', mo: '', entreprise: '', ref: '', ville: '' })
@@ -51,7 +53,7 @@ export default function App() {
   // Abonnement : seuls le dépôt de plans et l'export PDF sont Premium (statut « premium » ou « admin »).
   // Tout le reste, DQE compris, est gratuit (statut « standard »).
   const abo = useAbonnement(chargement ? undefined : (session?.user?.id ?? null))
-  const payant = (k) => !!TABS.find((t) => t.k === k)?.payant
+  const payant = estPayant
   const [premiumOuvert, setPremiumOuvert] = useState(false) // fenêtre « récapitulatif + paiement »
   // Au retour de FedaPay (paiement confirmé ou non), la fenêtre s'ouvre toute seule avec le résultat.
   useEffect(() => { if (abo.retour) setPremiumOuvert(true) }, [abo.retour])
@@ -97,7 +99,7 @@ export default function App() {
       setTransitioning(false)
       setPendingTab(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 5000)
+    }, TRANSITION_MS)
   }
 
   const goToStep = (offset) => {
@@ -256,11 +258,11 @@ export default function App() {
           {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} depots={depots} setDepots={setDepots} premium={abo.acces} onPremium={() => setPremiumOuvert(true)} />}
           {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} premium={abo.acces} onPremium={() => setPremiumOuvert(true)} />}
           {tab === 'prix'    && <TabPrix    prix={prix} setPrix={setPrix} prixInfo={prixInfo} />}
-          {payant(tab) && !abo.acces && (
+          {paywallAffiche(tab, abo.acces) && (
             <Paywall etape={TABS.find((t) => t.k === tab)?.lab} abo={abo} onPremium={() => setPremiumOuvert(true)} onRetour={() => setTab('dqe')} />
           )}
-          {tab === 'dqe'     && abo.acces && <TabDQE     totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
-          {tab === 'export'  && abo.acces && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
+          {tab === 'dqe'     && contenuAccessible('dqe', abo.acces) && <TabDQE     totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
+          {tab === 'export'  && contenuAccessible('export', abo.acces) && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
         </div>
 
         {verrou && refus && (

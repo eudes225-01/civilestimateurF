@@ -1,7 +1,8 @@
 // src/components/TabTransition.jsx
-// Transition de chargement (5 s) jouée à chaque passage d'un onglet à un autre.
+// Transition de chargement brève (TRANSITION_MS) jouée à chaque passage d'un onglet à un autre.
 import React, { useEffect, useState } from 'react'
 import { LogoMark } from './Logo.jsx'
+import { TRANSITION_MS } from '../lib/transition.js'
 
 const ETAPES = [
   'Préparation du module…',
@@ -33,17 +34,18 @@ export default function TabTransition({ label = '', color = 'indigo' }) {
         </p>
         <p className="text-muted text-[13px] mt-1 min-h-[18px] transition-all">{ETAPES[i]}</p>
 
-        {/* barre de progression 5 s */}
+        {/* barre de progression (durée = TRANSITION_MS) */}
         <div className="mt-5 h-2 rounded-full bg-muted-bg overflow-hidden border border-line">
-          <div className="h-full rounded-full bg-gradient-to-r from-indigo via-laterite to-soleil origin-left animate-[progress5_5s_linear_forwards]" />
+          <div className="h-full rounded-full bg-gradient-to-r from-indigo via-laterite to-soleil origin-left progress-transition" style={{ animationDuration: `${TRANSITION_MS}ms` }} />
         </div>
         <p className="mt-2 font-mono text-[11px] text-muted tracking-wide">Calcul automatique en cours</p>
       </div>
 
       <style>{`
-        @keyframes progress5 { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+        @keyframes progress-transition { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+        .progress-transition { animation: progress-transition 0.7s linear forwards; }
         @media (prefers-reduced-motion: reduce) {
-          .animate-\\[progress5_5s_linear_forwards\\] { animation-duration: 0.3s !important; }
+          .progress-transition { animation-duration: 0.2s !important; }
         }
       `}</style>
     </div>
