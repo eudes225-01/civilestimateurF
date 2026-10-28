@@ -148,7 +148,6 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, premi
             { k: 'epDalle', lab: 'Ép. dalle pleine (m)' },
             { k: 'pertesAgglo', lab: 'Pertes agglos (%)' },
             { k: 'pertesBrique', lab: 'Pertes briques (%)' },
-            { k: 'K', lab: 'Coeff. majoration (K)' },
             { k: 'largPoteau', lab: 'Larg. poteau déduite (m)' },
           ].map(({ k, lab }) => (
             <div key={k}>

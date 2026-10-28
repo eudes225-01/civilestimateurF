@@ -13,7 +13,6 @@ import { TRANSITION_MS } from './lib/transition.js'
 import TabExport from './components/tabs/TabExport.jsx'
 import { PRIX, PRIX_VERSION, PRIX_DATE } from './lib/metre.js'
 import { api } from './lib/api.js'
-import { plansManquants } from './lib/planGate.js'
 import { useAuth } from './lib/auth.jsx'
 import { useAbonnement } from './lib/abonnement.js'
 import Paywall from './components/Paywall.jsx'
@@ -59,17 +58,11 @@ export default function App() {
   useEffect(() => { if (abo.retour) setPremiumOuvert(true) }, [abo.retour])
 
 
-  // Plans déposés (un tableau de fichiers par type) : l'étape « Projet & plan » ne
-  // laisse passer à la suite que si tous les plans obligatoires y figurent.
+  // Plans déposés. Plus aucun plan n'est obligatoire : le score de couverture (moteur) mesure ce qui est lu,
+  // et seules les données ambiguës ou absentes remontent, à confirmer avant l'export (ValidationExceptions).
   const [depots, setDepots] = useState({})
-  // Projet rouvert : les fichiers ne sont pas conservés, mais leurs noms le sont — ils valent dépôt pour le verrou.
+  // Projet rouvert : les fichiers ne sont pas conservés, mais leurs noms le sont (pièces du dossier).
   const [conserves, setConserves] = useState({})
-  const manquants = plansManquants(Object.fromEntries([...new Set([...Object.keys(conserves), ...Object.keys(depots)])]
-    .map((k) => [k, depots[k]?.length ? depots[k] : (conserves[k] || [])])))
-  // Les plans obligatoires ne s'imposent qu'aux comptes qui peuvent déposer des plans (Premium / admin) :
-  // un compte standard saisit ses dimensions à la main et avance sans dépôt.
-  const verrou = abo.acces && manquants.length > 0
-  const [refus, setRefus] = useState(false)
 
   const tabIndex = TABS.findIndex((t) => t.k === tab)
   const isFirstTab = tabIndex <= 0
@@ -78,14 +71,6 @@ export default function App() {
   // Passage d'un onglet à l'autre : transition de 5 s minimum.
   const switchTab = (k) => {
     if (k === tab || transitioning) return
-    // Accès refusé : toute étape autre que la première exige les plans obligatoires.
-    if (verrou && TABS.findIndex((t) => t.k === k) > 0) {
-      setRefus(true)
-      if (tab !== 'projet') setTab('projet')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
-    setRefus(false)
     // Étape Premium (export PDF) sans abonnement : on affiche directement l'écran d'abonnement (pas de transition).
     if (payant(k) && !abo.acces) {
       setTab(k)
@@ -128,7 +113,7 @@ export default function App() {
         if (!n) return p
         const ancienDefaut = p.sac ?? p.bi
         const modifie = p.pu !== ancienDefaut
-        return { ...p, designation: n.designation, unite: n.unite, bi: n.bi, sac: n.sac, pu: modifie ? p.pu : (n.sac ?? n.bi) }
+        return { ...p, designation: n.designation, unite: n.unite, bi: n.bi, sac: n.sac, estime: n.estime === true, pu: modifie ? p.pu : (n.sac ?? n.bi) }
       }))
       setPrixInfo({ version: r.version, date: r.date, source: r.source || 'backend' })
     }).catch(() => {})
@@ -171,7 +156,7 @@ export default function App() {
       setLevels(Array.isArray(d.levels) && d.levels.length ? d.levels : niveauxVides())
       setPrix((cur) => cur.map((x) => ({ ...x, pu: d.prixModifies && x.code in d.prixModifies ? d.prixModifies[x.code] : (x.sac ?? x.bi) })))
       setDepots({}); setConserves(d.plans || {})
-      setProjetId(p.id); setEtatSauvegarde('idle'); setStarted(true); setTab('projet'); setRefus(false)
+      setProjetId(p.id); setEtatSauvegarde('idle'); setStarted(true); setTab('projet')
     } catch { setEtatSauvegarde('error') }
   }
 
@@ -179,10 +164,10 @@ export default function App() {
     clearTimeout(minuteur.current)
     setProj(projVide()); setParams(paramsVides()); setLevels(niveauxVides())
     setPrix((cur) => cur.map((x) => ({ ...x, pu: x.sac ?? x.bi })))
-    setDepots({}); setConserves({}); setProjetId(null); setEtatSauvegarde('idle'); setTab('projet'); setRefus(false)
+    setDepots({}); setConserves({}); setProjetId(null); setEtatSauvegarde('idle'); setTab('projet')
   }
 
-  const { totaux, alertes } = useMemo(() => metrerProjet(levels, params), [levels, params])
+  const { totaux, alertes, couverture } = useMemo(() => metrerProjet(levels, params), [levels, params])
 
   // Comptes actifs : la connexion Google est obligatoire pour utiliser l'application.
   if (comptes && chargement) return <div className="min-h-screen grid place-items-center text-muted text-[13px]">Chargement…</div>
@@ -248,32 +233,22 @@ export default function App() {
                 <span className={`font-mono text-[11px] ${on ? 'opacity-80' : 'opacity-50'}`}>{String(i + 1).padStart(2, '0')}</span>
                 <t.Ic size={15} /> {t.lab}
                 {t.payant && <EtiquettePremium className={on || loading ? '!bg-white/20 !text-white !border-white/30' : ''} />}
-                {((verrou && i > 0) || (t.payant && !abo.acces)) && <Lock size={12} className="opacity-60" />}
+                {(t.payant && !abo.acces) && <Lock size={12} className="opacity-60" />}
               </button>
             )
           })}
         </div>
 
         <div key={tab} className="py-5 animate-fade-up">
-          {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} depots={depots} setDepots={setDepots} premium={abo.acces} onPremium={() => setPremiumOuvert(true)} />}
+          {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} couverture={couverture} depots={depots} setDepots={setDepots} premium={abo.acces} onPremium={() => setPremiumOuvert(true)} />}
           {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} premium={abo.acces} onPremium={() => setPremiumOuvert(true)} />}
-          {tab === 'prix'    && <TabPrix    prix={prix} setPrix={setPrix} prixInfo={prixInfo} />}
+          {tab === 'prix'    && <TabPrix    prix={prix} setPrix={setPrix} prixInfo={prixInfo} params={params} setParams={setParams} />}
           {paywallAffiche(tab, abo.acces) && (
             <Paywall etape={TABS.find((t) => t.k === tab)?.lab} abo={abo} onPremium={() => setPremiumOuvert(true)} onRetour={() => setTab('dqe')} />
           )}
-          {tab === 'dqe'     && contenuAccessible('dqe', abo.acces) && <TabDQE     totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
-          {tab === 'export'  && contenuAccessible('export', abo.acces) && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} alertes={alertes} prixInfo={prixInfo} />}
+          {tab === 'dqe'     && contenuAccessible('dqe', abo.acces) && <TabDQE     totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
+          {tab === 'export'  && contenuAccessible('export', abo.acces) && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
         </div>
-
-        {verrou && refus && (
-          <div role="alert" className="mb-3 rounded-xl2 border border-laterite/30 bg-laterite-soft px-4 py-3 text-[13px] text-laterite-deep flex gap-2.5">
-            <Lock size={16} className="shrink-0 mt-0.5" />
-            <span>
-              Accès à l'étape suivante refusé : déposez d'abord {manquants.length > 1 ? 'les plans manquants' : 'le plan manquant'} —{' '}
-              <b>{manquants.map((m) => m.lab).join(', ')}</b>.
-            </span>
-          </div>
-        )}
 
         {/* ── Navigation Précédent / Suivant ── */}
         <div className="flex items-center justify-between gap-3 pb-8 flex-wrap">

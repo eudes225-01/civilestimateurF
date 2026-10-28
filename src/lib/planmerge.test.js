@@ -238,3 +238,100 @@ describe('Plan de fondation : toutes les données viennent du plan', () => {
     assert.equal(extractionToProject(e3).patchParams.fondation, undefined)
   })
 })
+
+describe('Plan d\'amélioration : niveaux, drapeaux de lecture, couverture', () => {
+  test('« Niveau 1 », « 1er étage », « N+1 » et « R+1 » désignent le même niveau (pas de double comptage)', () => {
+    for (const nom of ['Niveau 1', '1er étage', 'Premier étage', 'N+1', 'Étage 1', 'R+1']) assert.equal(cleNiveau(nom), 'r+1', nom)
+    assert.equal(cleNiveau('Niveau 0'), 'rdc')
+    assert.equal(cleNiveau('Deuxième étage'), 'r+2')
+  })
+
+  test('deux vues du même étage nommées différemment ne donnent qu\'un niveau', () => {
+    const ex = consolider([
+      lec('plan', { nom: 'R+1', pieces: [{ nom: 'Ch', L: 4, l: 3 }], murs: [] }),
+      lec('coffrage', { niveau: 'Étage 1', poteaux: [{ nom: 'P1', nb: 4, a: 0.2, b: 0.2, H: 3 }] }),
+    ])
+    assert.equal(ex.niveaux.length, 1)
+  })
+
+  test('plan de fondation lu sans profondeur : drapeaux fondationLue / profondeurFouilleLue', () => {
+    const ex = consolider([
+      lec('plan', { nom: 'RDC', pieces: [{ nom: 'S', L: 5, l: 4 }] }),
+      lec('fondation', { detectee: true, type: 'filante', filante: { largeur: 0.5, hauteur: 0.25, lineaire: null }, profondeurFouille: null }),
+    ])
+    const { patchParams } = extractionToProject(ex)
+    assert.equal(patchParams.planFlags.fondationLue, true)
+    assert.equal(patchParams.planFlags.profondeurFouilleLue, false)
+    const r = metrerProjet(extractionToProject(ex).levels, { ...PARAMS_DEFAUT, ...patchParams, fondation: { ...FONDATION_DEFAUT, ...patchParams.fondation } })
+    assert.ok(r.couverture.aConfirmer.some((x) => x.cle === 'profondeur_fouille' && x.etat === 'a_confirmer'))
+    assert.ok(!r.couverture.aConfirmer.some((x) => x.cle === 'fondation'), 'fondation lue : pas de question « valeurs par défaut »')
+  })
+
+  test('type de plancher supposé faute de lecture : marqué « défaut » et soumis à confirmation', () => {
+    const ex = consolider([
+      lec('plan', { nom: 'RDC', pieces: [{ nom: 'S', L: 5, l: 4 }], surfPlancher: 20 }),
+      lec('plan', { nom: 'R+1', pieces: [{ nom: 'S', L: 5, l: 4 }], surfPlancher: 20 }),
+    ])
+    const { levels, patchParams } = extractionToProject(ex)
+    assert.ok(levels.every((l) => l.plancherSource === 'defaut'))
+    const r = metrerProjet(levels, { ...PARAMS_DEFAUT, ...patchParams })
+    assert.ok(r.couverture.aConfirmer.some((x) => x.cle === 'plancher_type'))
+  })
+
+  test('plancher lu sur la poutraison : pas de question sur le type', () => {
+    const ex = consolider([
+      lec('plan', { nom: 'RDC', pieces: [{ nom: 'S', L: 5, l: 4 }], surfPlancher: 20 }),
+      lec('poutraison', { niveau: 'RDC', poutres: [], plancher: { hourdis: 16, compression: 4 } }),
+    ])
+    const { levels, patchParams } = extractionToProject(ex)
+    assert.equal(levels[0].plancherSource, 'lu')
+    const r = metrerProjet(levels, { ...PARAMS_DEFAUT, ...patchParams })
+    assert.ok(!r.couverture.aConfirmer.some((x) => x.cle === 'plancher_type'))
+  })
+})
+
+describe('Maquette IFC : une seule source par sujet (pas de double comptage)', () => {
+  const ifc = (extra = {}) => lec('plan', {
+    nom: 'RDC', source: 'ifc', HSP: 3, surfPlancher: 80, epDalle: 0.15, confiance: 'haute',
+    murs: [{ nom: 'M1', type: 'agglo20', L: 10, H: 3, position: 'exterieur', portes: 1, fenetres: 0 }],
+    poteaux: [{ nom: 'Poteaux 0.2×0.3', nb: 2, a: 0.2, b: 0.3, H: 3 }], poutres: [], ...extra,
+  }, { typeDepose: 'ifc' })
+  const pdf = () => lec('plan', {
+    nom: 'RDC', HSP: null, surfPlancher: null,
+    pieces: [{ nom: 'Salon', L: 8, l: 10 }],
+    murs: [{ nom: 'M1 pdf', type: 'agglo15', L: 10, H: 3, position: 'exterieur', portes: 1, fenetres: 0 }],
+    poteaux: [{ nom: 'P', nb: 2, a: 0.2, b: 0.3, H: 3 }],
+  })
+
+  test('IFC + PDF du même niveau : les murs et poteaux du PDF ne s\'ajoutent pas à ceux de l\'IFC', () => {
+    const ex = consolider([pdf(), ifc()])   // l'ordre de lecture ne doit pas compter
+    const n = ex.niveaux[0]
+    assert.equal(n.murs.length, 1); assert.equal(n.murs[0].nom, 'M1')
+    assert.equal(somme(n.poteaux), 2)
+    assert.ok(ex.incertitudes.some((m) => /IFC ET sur un plan PDF/.test(m)))
+    assert.deepEqual(n._sources, ['ifc', 'plan'])
+  })
+
+  test('le PDF complète ce que l\'IFC n\'a pas (pièces, HSP absente)', () => {
+    const ex = consolider([pdf(), ifc({ HSP: null })])
+    const n = ex.niveaux[0]
+    assert.equal(n.pieces.length, 1)
+    assert.equal(n.HSP, null)                  // ni l'IFC ni ce PDF ne la donnent : à confirmer
+    assert.equal(n.surfPlancher, 80)
+  })
+
+  test('de l\'IFC au métré : quantités reprises, épaisseur de dalle transmise', () => {
+    const { levels, patchParams } = extractionToProject(consolider([ifc()]))
+    assert.equal(levels[0].epDalle, 0.15)
+    assert.equal(levels[0].murs[0].type, 'agglo20')
+    const r = metrerProjet(levels, { ...PARAMS_DEFAUT, ...patchParams })
+    proche(r.totaux.Smur, 30 - 0.9 * 2.1)
+    assert.equal(r.totaux.volPoteaux, 0.36)
+  })
+
+  test('un PDF seul garde son comportement habituel', () => {
+    const n = consolider([pdf()]).niveaux[0]
+    assert.equal(n.murs.length, 1); assert.equal(n.murs[0].nom, 'M1 pdf')
+  })
+})
+const somme = (l) => l.reduce((s, x) => s + (x.nb || 1), 0)

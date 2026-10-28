@@ -190,7 +190,7 @@ export default function PlanReview({ ex, setEx, onValider }) {
                 {ex.vues.map((v, i) => (
                   <tr key={i} className={v.reclasse || !v.type ? lowCls : ''}>
                     <td className="pr-3 py-0.5"><span className="font-semibold">{v.nom}</span> <span className="text-muted">· {v.fichier}</span></td>
-                    <td className="pr-3">{TYPES_PLANS[v.typeDepose]?.court || '—'}</td>
+                    <td className="pr-3">{v.typeDepose === 'ifc' ? 'IFC' : (TYPES_PLANS[v.typeDepose]?.court || (v.typeDepose === 'libre' ? 'Libre' : '—'))}</td>
                     <td className="pr-3 font-semibold">{v.type ? TYPES_PLANS[v.type].court : 'Non reconnu'}{v.reclasse && <span className="ml-1.5 text-[10.5px] text-soleil-deep">(reclassée)</span>}</td>
                     <td className="text-muted">{v.type ? <span className="inline-flex items-center gap-1"><ArrowRight size={11} />{TYPES_PLANS[v.type].module}</span> : 'ignorée'}</td>
                   </tr>

@@ -2,7 +2,8 @@
 import React, { useState, useRef } from 'react'
 import { FileDown, Loader, Image as ImageIcon, X, Palette, BadgeCheck, MapPin, Phone, Mail } from 'lucide-react'
 import { Card, Button, SectionTitle, Label, Input, Badge } from '../ui/index.jsx'
-import { buildDQE } from '../../lib/metre.js'
+import { buildDQE, montantsIncomplets, exportAutorise } from '../../lib/metre.js'
+import ValidationExceptions from '../ValidationExceptions.jsx'
 import { buildSousDetail } from '../../lib/metre.js'
 import { fmtCFA, fmtDate } from '../../lib/format.js'
 import { pdfServeur, telecharger } from '../../lib/pdfServeur.js'
@@ -10,7 +11,7 @@ import { exportPdfLegacy } from '../../lib/pdfLegacy.js'
 
 const PRESETS = ['#1e2a78', '#e0532f', '#0fa36b', '#17b3c7', '#7c3aed', '#0f172a']
 
-export default function TabExport({ proj, totaux, prix, params, alertes = [], prixInfo }) {
+export default function TabExport({ proj, totaux, prix, params, setParams, alertes = [], couverture, prixInfo }) {
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState('')
   const [opts, setOpts] = useState({ pageGarde: true, sousDetail: true, metresComplets: true, pagination: true })
@@ -18,7 +19,7 @@ export default function TabExport({ proj, totaux, prix, params, alertes = [], pr
     color: '#1e2a78',
     logo: null,
     logoName: '',
-    slogan: 'Métré & Devis Quantitatif Estimatif',
+    slogan: '',
     telephone: '',
     email: '',
     adresse: '',
@@ -30,6 +31,11 @@ export default function TabExport({ proj, totaux, prix, params, alertes = [], pr
   const prixMap = Object.fromEntries(prix.map((p) => [p.code, p.pu]))
   const dqe = buildDQE(totaux, prixMap, params.K || 1.3)
   const sousDetail = buildSousDetail(dqe.lignes, prixMap, params.K || 1.3)
+  // Une donnée « à confirmer » bloque l'export ; une valeur par défaut explicitement confirmée ne le bloque plus.
+  // La trace de confirmation reste dans le projet : le PDF client n'en contient aucune.
+  const autorise = exportAutorise(couverture)
+  const montants = montantsIncomplets(dqe, couverture)
+  const montantIncomplet = montants.reduce((s, m) => s + m.montant, 0)
 
   const onLogo = (f) => {
     if (!f) return
@@ -42,6 +48,7 @@ export default function TabExport({ proj, totaux, prix, params, alertes = [], pr
   }
 
   const handleExport = async () => {
+    if (!autorise) return
     setLoading(true)
     setInfo('')
     const ctx = { proj, totaux, params, alertes, prixInfo, brand, opts, dqe, sousDetail }
@@ -76,6 +83,10 @@ export default function TabExport({ proj, totaux, prix, params, alertes = [], pr
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
+      <div className="lg:col-span-2">
+        <ValidationExceptions couverture={couverture} setParams={setParams} montants={montants} titre="Validation avant export" />
+      </div>
+
       {/* ── Personnalisation du document ── */}
       <Card className="p-5" accent={'indigo'}>
         <SectionTitle accent={'indigo'}>
@@ -243,7 +254,7 @@ export default function TabExport({ proj, totaux, prix, params, alertes = [], pr
           </p>
         </div>
 
-        <Button variant="accent" onClick={handleExport} disabled={loading || dqe.lignes.length === 0} className="w-full sm:w-auto">
+        <Button variant="accent" onClick={handleExport} disabled={loading || dqe.lignes.length === 0 || !autorise} className="w-full sm:w-auto">
           {loading ? <Loader size={15} className="animate-spin" /> : <FileDown size={15} />}
           {loading ? 'Génération…' : 'Télécharger le PDF personnalisé'}
         </Button>
@@ -254,7 +265,9 @@ export default function TabExport({ proj, totaux, prix, params, alertes = [], pr
             Aucune donnée à exporter — saisissez des dimensions dans l'onglet <b>Niveaux & métré</b>.
           </p>
         )}
-        <Badge variant="ok" className="mt-3"><FileDown size={12} /> Document complet, prêt à transmettre</Badge>
+        {autorise
+          ? <Badge variant="ok" className="mt-3"><FileDown size={12} /> Aucune donnée à confirmer — prêt à transmettre</Badge>
+          : <p role="alert" className="text-[12.5px] text-laterite-deep font-semibold mt-3">Export bloqué : confirmez ou corrigez les données signalées ci-dessus{montantIncomplet > 0 ? ` (${fmtCFA(montantIncomplet)} HT du devis en dépendent)` : ''}.</p>}
       </Card>
     </div>
   )

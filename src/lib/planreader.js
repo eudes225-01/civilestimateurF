@@ -15,7 +15,7 @@
 import { api } from './api.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
-import { TYPES_PLANS, CLES_TYPES_PLANS, routerPlan } from 'civilestimateur-engine'
+import { TYPES_PLANS, CLES_TYPES_PLANS, routerPlan, lireIFC } from 'civilestimateur-engine'
 import { consolider, estVide } from './planmerge.js'
 
 export { extractionToProject, normPiece, normMur, normPoteau } from './planmerge.js'
@@ -24,6 +24,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 export const PLAN_ACCEPTS = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 export const PLAN_MAX_MB = 8
+// Maquette IFC (facultative) : lue dans le navigateur, sans modèle ni envoi au serveur.
+export const IFC_MAX_MB = 40
+export const estIFC = (f) => /\.ifc$/i.test(f?.name || '')
 
 // ── Prompts ──────────────────────────────────────────────────────────────────
 const REGLES_COMMUNES = `RÈGLES STRICTES :
@@ -364,8 +367,16 @@ async function chargerImages(file) {
 export async function analyzePlans(depots = {}, opts = {}) {
   const { verifier = true, onProgress = () => {} } = opts
   const fichiers = []
-  for (const type of CLES_TYPES_PLANS) for (const file of depots[type] || []) fichiers.push({ type, file })
-  if (!fichiers.length) return { ok: false, message: 'Aucun plan déposé.' }
+  // Dépôt libre (sans catégorie) d'abord, puis les dépôts classés par l'utilisateur.
+  // Pour un dépôt libre, aucun type n'est annoncé : chaque vue est reconnue par signature (cartouche, codes).
+  for (const type of ['libre', ...CLES_TYPES_PLANS]) for (const file of depots[type] || []) fichiers.push({ type, file })
+  const ifcFichiers = depots.ifc || []
+  if (!fichiers.length && !ifcFichiers.length) return { ok: false, message: 'Aucun plan déposé.' }
+  for (const f of ifcFichiers) {
+    if (/\.(ifczip|zip)$/i.test(f.name)) return { ok: false, code: 'format', message: `« ${f.name} » : les archives IFC compressées ne sont pas lues. Extrayez le fichier .ifc, ou exportez-le sans compression.` }
+    if (!estIFC(f)) return { ok: false, code: 'format', message: `« ${f.name} » : la maquette doit être un fichier .ifc.` }
+    if (f.size > IFC_MAX_MB * 1024 * 1024) return { ok: false, code: 'size', message: `« ${f.name} » : maquette trop lourde (max ${IFC_MAX_MB} Mo). Exportez uniquement les éléments de construction (sans mobilier ni végétation).` }
+  }
 
   for (const { file } of fichiers) {
     if (!PLAN_ACCEPTS.includes(file.type)) return { ok: false, code: 'format', message: `« ${file.name} » : format non supporté. Utilisez un PDF ou une image (PNG, JPG, WEBP).` }
@@ -374,8 +385,27 @@ export async function analyzePlans(depots = {}, opts = {}) {
 
   const lectures = []
   let fait = 0
-  const total = fichiers.length
+  const total = fichiers.length + ifcFichiers.length
   const dire = (message) => onProgress({ fait, total, message })
+
+  // Maquette(s) IFC : lecture déterministe des quantités, avant les plans PDF / images.
+  for (const file of ifcFichiers) {
+    dire(`Lecture de la maquette IFC « ${file.name} »…`)
+    let res
+    try { res = lireIFC(await file.text()) } catch (e) { res = { ok: false, message: `lecture impossible (${e.message || 'erreur'})` } }
+    if (!res.ok) {
+      // Facultative : une maquette illisible n'empêche pas la lecture des plans PDF.
+      lectures.push({ type: null, data: null, vue: { nom: 'Maquette IFC', fichier: file.name, typeDepose: 'ifc', type: null, reclasse: false, source: 'ifc', confiance: 'basse', message: `Maquette IFC « ${file.name} » non utilisée : ${res.message}` } })
+    } else {
+      res.niveaux.forEach((niv, i) => lectures.push({
+        type: 'plan',
+        data: { ...niv, titre: i === 0 ? res.titre : null, incertitudes: i === 0 ? res.incertitudes : [] },
+        vue: { nom: `Maquette IFC — ${niv.nom}`, fichier: file.name, typeDepose: 'ifc', type: 'plan', reclasse: false, source: 'ifc', confiance: 'haute', message: null },
+      }))
+    }
+    fait += 1
+    dire(`« ${file.name} » lu.`)
+  }
 
   try {
     for (const { type: typeDepose, file } of fichiers) {
@@ -386,7 +416,7 @@ export async function analyzePlans(depots = {}, opts = {}) {
       for (let pi = 0; pi < images.length; pi++) {
         const img = images[pi]
         const page = images.length > 1 ? ` (page ${pi + 1}/${images.length})` : ''
-        dire(`Repérage des vues — ${TYPES_PLANS[typeDepose].court} · ${file.name}${page}`)
+        dire(`Repérage des vues — ${TYPES_PLANS[typeDepose]?.court || 'classement automatique'} · ${file.name}${page}`)
 
         // Passe 1 : locator (vues + classification par cartouche et codes lus)
         const loc = getLocatorImage(img)

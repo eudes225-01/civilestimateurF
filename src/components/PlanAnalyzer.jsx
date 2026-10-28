@@ -13,12 +13,14 @@ import { analyzePlans, extractionToProject, PLAN_MAX_MB } from '../lib/planreade
 import PlanDeposits from './PlanDeposits.jsx'
 import PlanReview from './PlanReview.jsx'
 import PlanHelp from './PlanHelp.jsx'
-import { plansManquants, PLANS_OBLIGATOIRES } from '../lib/planGate.js'
+import VideoGuideIFC from './VideoGuideIFC.jsx'
+import { plansAbsents } from '../lib/planGate.js'
+import { CouvertureBandeau } from './ValidationExceptions.jsx'
 
-// `depots` / `setDepots` sont portés par App : l'écran suivant en dépend (plans obligatoires).
+// `depots` / `setDepots` sont portés par App. Aucun plan n'est obligatoire : `couverture` (moteur) mesure ce qui est lu.
 // `premium` : le dépôt de plans est une fonction Premium (ou admin). Sans cela, les dépôts sont verrouillés
 // et le bouton « Passer Premium » (`onPremium`) ouvre le récapitulatif de l'abonnement.
-export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, depots, setDepots, premium = true, onPremium }) {
+export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couverture, depots, setDepots, premium = true, onPremium }) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(null)
   const [error, setError] = useState('')
@@ -28,7 +30,7 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, depo
   const nbFichiers = Object.values(depots).reduce((s, l) => s + l.length, 0)
   const nbTypes = Object.values(depots).filter((l) => l.length).length
 
-  const manquants = plansManquants(depots)
+  const absents = plansAbsents(depots)
   const changerDepots = (up) => { setEx(null); setApplied(false); setError(''); setDepots(up) }
 
   const analyser = async () => {
@@ -61,6 +63,9 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, depo
       fondation: patchParams.fondation ? { ...p.fondation, ...patchParams.fondation } : p.fondation,
       planFlags: { ...(p.planFlags || {}), ...(patchParams.planFlags || {}) },
       plans: { ...(p.plans || {}), ...(patchParams.plans || {}) },
+      // Nouvelle lecture validée = nouvelles données : les confirmations précédentes (valeurs par défaut
+      // acceptées, corrections) ne s'appliquent plus et les exceptions sont réévaluées.
+      confirmations: {},
     }))
     setProj({
       ...proj,
@@ -78,10 +83,10 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, depo
           <Badge variant="lag"><ScanLine size={13} /> Catégorisation automatique par type de plan</Badge>
         </div>
         <p className="text-[13px] text-muted mt-1.5">
-          Déposez chaque plan dans la case de son type. Chaque vue est reconnue d'après son cartouche et ses codes
+          Déposez votre dossier <b>sans classer les planches</b>, avec en plus, si vous l'avez, une <b>maquette IFC</b> (facultative) qui facilite la lecture des mesures de la vue en plan. Chaque vue est reconnue d'après son cartouche et ses codes
           (SF, P<i>n</i>, EF, HSP, (16+4)…), puis lue avec l'extracteur et le calcul propres à son type.
-          Vous <b>vérifiez et corrigez</b> toutes les données avant tout calcul ; le devis n'est jamais généré directement depuis la lecture.
-          Un plan déposé dans la mauvaise case est reclassé automatiquement.
+          Vous <b>vérifiez et corrigez</b> la lecture avant tout calcul ; le devis n'est jamais généré directement depuis la lecture.
+          Aucun plan n'est obligatoire : seules les données manquantes ou ambiguës vous seront demandées.
         </p>
       </div>
 
@@ -97,6 +102,9 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, depo
           </div>
         )}
 
+        {/* Vidéo facultative, annoncée avant les dépôts (démarrage automatique à la première visite) */}
+        {premium && <VideoGuideIFC />}
+
         <PlanDeposits depots={depots} setDepots={changerDepots} disabled={busy || !premium} verrouille={!premium} />
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -111,27 +119,14 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, depo
           {nbFichiers > 0 && !busy && <span className="text-[12.5px] text-muted">Le plan sert uniquement à produire votre devis. Double lecture active.</span>}
         </div>
 
-        {/* ── Plans obligatoires : condition pour passer à l'étape suivante ── */}
-        {premium && (
-        <div className={`mt-4 rounded-xl2 border px-4 py-3 ${manquants.length ? 'border-laterite/30 bg-laterite-soft/50' : 'border-jade/30 bg-jade-soft'}`}>
-          <p className={`flex items-center gap-2 text-[12.5px] font-semibold ${manquants.length ? 'text-laterite-deep' : 'text-jade-deep'}`}>
-            {manquants.length ? <Lock size={14} /> : <Check size={14} />}
-            {manquants.length
-              ? `Étape suivante verrouillée — il manque ${manquants.length} plan${manquants.length > 1 ? 's' : ''} obligatoire${manquants.length > 1 ? 's' : ''}`
-              : 'Tous les plans obligatoires sont déposés — vous pouvez passer à l\'étape suivante'}
+        {/* ── Plans recommandés : information seulement, jamais un verrou ── */}
+        {premium && nbFichiers > 0 && absents.length > 0 && (
+          <p className="mt-4 text-[12px] text-muted">
+            Non déposés (facultatif) : {absents.map((p) => p.lab).join(', ')}. Les données correspondantes pourront vous être demandées dans l'étape de validation.
           </p>
-          <ul className="mt-2 flex flex-wrap gap-1.5">
-            {PLANS_OBLIGATOIRES.map((p) => {
-              const manque = manquants.some((m) => m.cle === p.cle)
-              return (
-                <li key={p.cle} className={`inline-flex items-center gap-1 text-[11.5px] font-medium px-2 py-0.5 rounded-full border ${manque ? 'bg-card border-laterite/30 text-laterite-deep' : 'bg-card border-jade/30 text-jade-deep'}`}>
-                  {manque ? <AlertTriangle size={11} /> : <Check size={11} />}{p.lab}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
         )}
+
+        {couverture && !couverture.vide && <div className="mt-4"><CouvertureBandeau couverture={couverture} /></div>}
 
         {busy && progress && (
           <div className="mt-4 rounded-xl2 border border-lagune/30 bg-lagune-soft/50 px-4 py-3">
@@ -161,7 +156,7 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, depo
           <div className="mt-4 rounded-xl2 border border-jade/30 bg-jade-soft px-4 py-3 flex items-center gap-2 animate-fade-up">
             <Check size={16} className="text-jade-deep shrink-0" />
             <span className="text-[13px] font-semibold text-jade-deep">
-              Lecture validée et reportée — poursuivez dans l'onglet « Niveaux &amp; métré » (murs, fondations, ossature, voiles y sont éditables) ; plomberie, électricité et toiture sont chiffrées dans le DQE.
+              Lecture validée et reportée — les exceptions à confirmer (s'il y en a) s'affichent dans l'onglet « DQE » ; murs, fondations, ossature et voiles restent éditables dans « Niveaux &amp; métré » ; plomberie, électricité et toiture sont chiffrées dans le DQE.
             </span>
           </div>
         )}

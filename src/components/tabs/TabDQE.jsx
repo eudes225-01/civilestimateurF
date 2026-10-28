@@ -5,9 +5,11 @@
 import React, { useMemo, useState } from 'react'
 import { AlertTriangle, AlertOctagon, Info, ChevronDown, ListTree } from 'lucide-react'
 import { Card, SectionTitle, Badge } from '../ui/index.jsx'
-import { buildDQE } from '../../lib/metre.js'
+import { buildDQE, montantsIncomplets } from '../../lib/metre.js'
+import ValidationExceptions from '../ValidationExceptions.jsx'
 import { buildSousDetail } from '../../lib/metre.js'
 import { fmtCFA, fmtNum } from '../../lib/format.js'
+import { lignesSurPrixEstimes } from '../../lib/prixEstimes.js'
 
 const ALERTE_STYLE = {
   bloquante: { Icon: AlertOctagon, cls: 'bg-laterite-soft border-laterite/30 text-laterite-deep' },
@@ -15,10 +17,12 @@ const ALERTE_STYLE = {
   info:      { Icon: Info,          cls: 'bg-lagune-soft border-lagune/25 text-lagune-deep' },
 }
 
-export default function TabDQE({ totaux, prix, params, alertes = [], prixInfo }) {
+export default function TabDQE({ totaux, prix, params, setParams, alertes = [], couverture, prixInfo }) {
   const [ouverts, setOuverts] = useState({})
   const prixMap = useMemo(() => Object.fromEntries(prix.map((p) => [p.code, p.pu])), [prix])
   const dqe = useMemo(() => buildDQE(totaux, prixMap, params.K || 1.3), [totaux, prixMap, params.K])
+  const montants = useMemo(() => montantsIncomplets(dqe, couverture), [dqe, couverture])
+  const surEstimes = useMemo(() => lignesSurPrixEstimes(dqe.lignes, prix), [dqe.lignes, prix])
   const sousDetail = useMemo(() => buildSousDetail(dqe.lignes, prixMap, params.K || 1.3), [dqe.lignes, prixMap, params.K])
 
   if (!dqe.lignes || dqe.lignes.length === 0) {
@@ -33,6 +37,9 @@ export default function TabDQE({ totaux, prix, params, alertes = [], prixInfo })
 
   return (
     <div className="grid gap-5">
+      {/* ── Exceptions à valider (plan d'amélioration) : score de couverture + données à confirmer ── */}
+      <ValidationExceptions couverture={couverture} setParams={setParams} montants={montants} />
+
       {/* ── Points à vérifier (A7) ── */}
       {alertes.length > 0 && (
         <Card className="p-5" accent="soleil">
@@ -67,6 +74,17 @@ export default function TabDQE({ totaux, prix, params, alertes = [], prixInfo })
             <b>Total incomplet :</b> {dqe.sansPrix.length} poste(s) métré(s) sans prix (0 FCFA) ne sont pas
             comptés dans le total — {dqe.sansPrix.map((l) => `${l.n} ${l.des}`).join(' · ')}.
             Renseignez-les dans l'onglet « Prix ».
+          </span>
+        </div>
+      )}
+
+      {surEstimes.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-soleil/30 bg-soleil-soft/60 text-soleil-deep p-3 text-[12.5px]">
+          <Info size={15} className="mt-0.5 shrink-0" />
+          <span>
+            <b>{surEstimes.length} poste(s)</b> reposent sur des prix moyens estimés (non issus du barème RPR) :
+            {' '}{surEstimes.slice(0, 6).map((l) => `${l.n} ${l.des}`).join(' · ')}{surEstimes.length > 6 ? ' …' : ''}.
+            Ajustez-les dans l'onglet « Prix » selon vos fournisseurs.
           </span>
         </div>
       )}

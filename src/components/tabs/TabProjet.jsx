@@ -4,13 +4,13 @@ import React from 'react'
 import { Card, Input, Label, SectionTitle } from '../ui/index.jsx'
 import PlanAnalyzer from '../PlanAnalyzer.jsx'
 
-export default function TabProjet({ proj, setProj, setLevels, setParams, depots, setDepots, premium = true, onPremium }) {
+export default function TabProjet({ proj, setProj, setLevels, setParams, couverture, depots, setDepots, premium = true, onPremium }) {
   const set = (k, v) => setProj({ ...proj, [k]: v })
 
   return (
     <div className="grid gap-5">
       {/* ── 1. Analyse de plan (fonction phare) ── */}
-      <PlanAnalyzer proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} depots={depots} setDepots={setDepots} premium={premium} onPremium={onPremium} />
+      <PlanAnalyzer proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} couverture={couverture} depots={depots} setDepots={setDepots} premium={premium} onPremium={onPremium} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* ── 2. Informations du projet ── */}

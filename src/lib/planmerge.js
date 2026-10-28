@@ -24,6 +24,11 @@ export function cleNiveau(nom) {
   if (m) return `r+${+m[1]}`
   m = s.match(/(\d+)\s*(?:er|e|eme|ere)?\s*etage/) || s.match(/etage\s*(\d+)/)
   if (m) return `r+${+m[1]}`
+  // « Niveau 1 », « Niv. 2 », « N+1 » : un même étage ne doit pas devenir deux niveaux (double comptage).
+  m = s.match(/\b(?:niveau|niv\.?|n)\s*\+?\s*(\d+)\b/)
+  if (m) return +m[1] === 0 ? 'rdc' : `r+${+m[1]}`
+  m = s.match(/\b(premier|1er)\b.*etage|\bdeuxieme\b.*etage|\btroisieme\b.*etage/)
+  if (m) return /deuxieme/.test(m[0]) ? 'r+2' : /troisieme/.test(m[0]) ? 'r+3' : 'r+1'
   if (/\betage\b/.test(s)) return 'r+1'
   if (/terrasse|toiture|combles/.test(s)) return 'terrasse'
   return s.replace(/\s+/g, ' ')
@@ -173,14 +178,23 @@ export function consolider(lectures = []) {
   cles.forEach((cle) => {
     const s = niv.get(cle)
     const lib = s.nom
-    const plan = s.plan.reduce((acc, p) => ({
+    // Règle de priorité (plan d'amélioration) : par sujet, UNE source de référence. Quand la maquette IFC
+    // fournit les murs / poteaux / poutres d'un niveau, la lecture PDF ne peut que compléter les données
+    // absentes (pièces, HSP, surface) — jamais ajouter des quantités, ce qui doublerait le comptage.
+    const ifcP = s.plan.filter((p) => p.source === 'ifc')
+    const ordonnes = [...ifcP, ...s.plan.filter((p) => p.source !== 'ifc')]
+    const ifcA = { murs: ifcP.some((p) => arr(p.murs).length), poteaux: ifcP.some((p) => arr(p.poteaux).length), poutres: ifcP.some((p) => arr(p.poutres).length) }
+    const horsIfc = (p, k) => ifcA[k] && p.source !== 'ifc'
+    if (ifcA.murs && s.plan.some((p) => p.source !== 'ifc' && arr(p.murs).length)) inc(`${lib} : murs lus sur l'IFC ET sur un plan PDF — les murs de l'IFC sont retenus (jamais cumulés).`)
+    const plan = ordonnes.reduce((acc, p) => ({
       ...acc,
       HSP: acc.HSP ?? p.HSP ?? null,
       surfPlancher: acc.surfPlancher ?? p.surfPlancher ?? null,
+      epDalle: acc.epDalle ?? p.epDalle ?? null,
       pieces: [...arr(acc.pieces), ...arr(p.pieces)],
-      murs: [...arr(acc.murs), ...arr(p.murs)],
-      poteaux: [...arr(acc.poteaux), ...arr(p.poteaux)],
-      poutres: [...arr(acc.poutres), ...arr(p.poutres)],
+      murs: [...arr(acc.murs), ...(horsIfc(p, 'murs') ? [] : arr(p.murs))],
+      poteaux: [...arr(acc.poteaux), ...(horsIfc(p, 'poteaux') ? [] : arr(p.poteaux))],
+      poutres: [...arr(acc.poutres), ...(horsIfc(p, 'poutres') ? [] : arr(p.poutres))],
     }), {})
     const cof = {
       poteaux: s.coffrage.flatMap((c) => arr(c.poteaux)),
@@ -197,7 +211,9 @@ export function consolider(lectures = []) {
 
     // Poteaux : le plan de coffrage fait foi sur la vue en plan (même éléments, lus plus précisément).
     let poteaux = arr(plan.poteaux)
-    if (cof.poteaux.length) {
+    if (ifcA.poteaux) {
+      if (cof.poteaux.length && somNb(poteaux) !== somNb(cof.poteaux)) inc(`${lib} : ${somNb(poteaux)} poteau(x) dans l'IFC, ${somNb(cof.poteaux)} sur le plan de coffrage — l'IFC est retenu.`)
+    } else if (cof.poteaux.length) {
       if (poteaux.length && somNb(poteaux) !== somNb(cof.poteaux)) {
         inc(`${lib} : ${somNb(poteaux)} poteau(x) lus sur la vue en plan, ${somNb(cof.poteaux)} sur le plan de coffrage — le coffrage est retenu.`)
       }
@@ -205,8 +221,10 @@ export function consolider(lectures = []) {
     }
     // Poutres : coffrage > poutraison > vue en plan (mêmes poutres représentées sur plusieurs plans : pas de double comptage).
     let poutres = arr(plan.poutres)
-    if (pou.poutres.length) poutres = pou.poutres
-    if (cof.poutres.length) {
+    if (ifcA.poutres) {
+      if ((pou.poutres.length || cof.poutres.length) && somNb(poutres) !== somNb(pou.poutres.length ? pou.poutres : cof.poutres)) inc(`${lib} : ${somNb(poutres)} poutre(s) dans l'IFC, ${somNb(pou.poutres.length ? pou.poutres : cof.poutres)} sur les plans PDF — l'IFC est retenu (jamais cumulé).`)
+    } else if (pou.poutres.length) poutres = pou.poutres
+    if (!ifcA.poutres && cof.poutres.length) {
       if (pou.poutres.length && somNb(pou.poutres) !== somNb(cof.poutres)) {
         inc(`${lib} : ${somNb(pou.poutres)} poutre(s) lues sur le plan de poutraison, ${somNb(cof.poutres)} sur le plan de coffrage — le coffrage est retenu (poutres jamais comptées deux fois).`)
       }
@@ -234,6 +252,8 @@ export function consolider(lectures = []) {
       }
     }
     if (s.coupe && Number(s.coupe.epDalle) > 0 && plancher === 'dallePleine' && epDalle === undefined) epDalle = +s.coupe.epDalle
+    // Épaisseur de dalle lue sur l'IFC (utilisée seulement si le plancher est une dalle pleine).
+    if (epDalle === undefined && Number(plan.epDalle) > 0) epDalle = +plan.epDalle
 
     // HSP : la coupe fait foi.
     let HSP = plan.HSP ?? null
@@ -243,7 +263,7 @@ export function consolider(lectures = []) {
       HSP = hCoupe
     }
 
-    const sources = [plan.pieces || plan.murs ? 'plan' : null, s.coffrage.length ? 'coffrage' : null, s.poutraison.length ? 'poutraison' : null, s.coupe ? 'coupe' : null].filter(Boolean)
+    const sources = [ifcP.length ? 'ifc' : null, s.plan.some((p) => p.source !== 'ifc') ? 'plan' : null, s.coffrage.length ? 'coffrage' : null, s.poutraison.length ? 'poutraison' : null, s.coupe ? 'coupe' : null].filter(Boolean)
     ex.niveaux.push({
       nom: lib, cle, HSP, surfPlancher, plancher, epDalle,
       pieces: arr(plan.pieces), murs: arr(plan.murs), poteaux, poutres,
@@ -307,6 +327,8 @@ export function extractionToProject(ex) {
     surfPlancher: n0(n.surfPlancher) || '',
     tremies: '',
     plancher: n.plancher || (nivs.length === 1 ? 'dallePleine' : 'hourdis15'),
+    // Type de plancher supposé faute de lecture : l'écran de validation le fait confirmer.
+    plancherSource: n.plancher ? 'lu' : 'defaut',
     ...(n0(n.epDalle) !== '' ? { epDalle: +n.epDalle } : {}),
     pieces: arr(n.pieces).map(normPiece),
     murs: arr(n.murs).map(normMur),
@@ -322,6 +344,9 @@ export function extractionToProject(ex) {
       // Prescriptions écrites sur le plan de fondation (sol d'assise attendu, eau, remblai…) :
       // affichées à l'utilisateur, jamais interprétées par le moteur.
       prescriptionsFondation: arr(ex.fondations?.prescriptions),
+      // Ce qui a réellement été lu sur le plan de fondation (sinon : valeurs par défaut du moteur, à confirmer).
+      fondationLue: !!ex.fondations?.detectee,
+      profondeurFouilleLue: n0(ex.fondations?.profondeurFouille) !== '' && +ex.fondations.profondeurFouille > 0,
     },
   }
   if (ex.toitTerrasseDetecte) patchParams.toiture = 'terrasse'

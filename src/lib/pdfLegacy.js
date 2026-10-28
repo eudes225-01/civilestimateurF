@@ -318,7 +318,7 @@ export async function exportPdfLegacy({ proj, totaux, params, alertes = [], prix
     blocInfo(`POINTS À VÉRIFIER (${alertes.length})`, alertes.map((a) => `• [${a.niveau.toUpperCase()}] ${a.msg}`), [253, 242, 222], [146, 90, 10])
   }
   blocInfo('NATURE DES RÉSULTATS', [
-    "Estimation établie par le moteur de calcul CivilEstimateur à partir des dimensions saisies et du barème indiqué.",
+    "Estimation établie à partir des dimensions saisies et du barème indiqué.",
     "Elle ne remplace ni un métré d'exécution, ni une étude technique, ni les prix réels du marché :",
     "à valider par le professionnel qui engage l'offre.",
   ], [243, 240, 233], [90, 90, 90])
@@ -419,7 +419,7 @@ export async function exportPdfLegacy({ proj, totaux, params, alertes = [], prix
     if (opts.pageGarde && i === 1) continue
     doc.setFontSize(7); doc.setTextColor(150, 150, 150)
     if (opts.pagination) doc.text(`Page ${i} / ${pageCount}`, W - M, H - 3, { align: 'right' })
-    doc.text(`Résultats indicatifs — ${prixInfo?.version || 'RPR'}${prixInfo?.date ? ` (${fmtMois(prixInfo.date)})` : ''} · Document généré par CivilEstimator`, M, H - 3)
+    doc.text(`Résultats indicatifs — ${prixInfo?.version || 'RPR'}${prixInfo?.date ? ` (${fmtMois(prixInfo.date)})` : ''}`, M, H - 3)
   }
 
   const name = `BPU_DQE_${(proj.titre || 'projet').replace(/[^\w\-]+/g, '_')}_${today.replace(/\//g, '-')}.pdf`

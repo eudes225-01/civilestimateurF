@@ -1,6 +1,6 @@
 // src/lib/planGate.js
-// Plans obligatoires pour passer à l'étape suivante. Le métré refuse d'avancer
-// tant qu'un de ces plans n'est pas déposé (au moins un fichier par type).
+// Types de plans déposables. Depuis le plan d'amélioration « lecture de plans », plus aucun
+// plan n'est obligatoire : le dépôt libre classe automatiquement chaque vue.
 //
 // « Plan de ferraillage » : ce n'est pas l'un des 8 types lus par le moteur
 // (codification des plans). Il est donc déposé et exigé comme les autres, mais
@@ -18,8 +18,12 @@ export const FERRAILLAGE = {
 export const CLES_DEPOT = [...CLES_TYPES_PLANS, 'ferraillage']
 export const typeDepot = (k) => (k === 'ferraillage' ? FERRAILLAGE : TYPES_PLANS[k])
 
-/** Plans obligatoires, dans l'ordre d'affichage (libellés de l'utilisateur). */
-export const PLANS_OBLIGATOIRES = [
+/**
+ * Plans RECOMMANDÉS (et non plus obligatoires) : aucun ne bloque l'accès à l'étape suivante.
+ * Ce qui manque se mesure par le score de couverture du moteur (evaluerCouverture) et ne
+ * remonte que sous forme de questions ciblées (voir ValidationExceptions).
+ */
+export const PLANS_RECOMMANDES = [
   { cle: 'plan',        lab: 'Plan architectural coté' },
   { cle: 'fondation',   lab: 'Plan de fondation' },
   { cle: 'coffrage',    lab: 'Plan de coffrage' },
@@ -28,8 +32,11 @@ export const PLANS_OBLIGATOIRES = [
   { cle: 'ferraillage', lab: 'Plan de ferraillage' },
 ]
 
-export const estObligatoire = (cle) => PLANS_OBLIGATOIRES.some((p) => p.cle === cle)
+export const estRecommande = (cle) => PLANS_RECOMMANDES.some((p) => p.cle === cle)
 
-/** Plans obligatoires sans aucun fichier déposé. */
-export const plansManquants = (depots = {}) =>
-  PLANS_OBLIGATOIRES.filter((p) => !(depots[p.cle] && depots[p.cle].length > 0))
+/** Plans recommandés sans aucun fichier déposé (information, jamais un verrou). */
+export const plansAbsents = (depots = {}) =>
+  PLANS_RECOMMANDES.filter((p) => !(depots[p.cle] && depots[p.cle].length > 0))
+
+/** Clé du dépôt libre : l'utilisateur dépose sans classer, chaque vue est reconnue automatiquement. */
+export const DEPOT_LIBRE = 'libre'
