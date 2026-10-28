@@ -3,8 +3,9 @@
 // créer un projet, enregistrer, mes projets (ouvrir / supprimer), abonnement Premium,
 // se déconnecter, supprimer mon compte.
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
-  Save, FolderOpen, Plus, LogOut, Loader, Check, AlertTriangle, Trash2, X, Crown, ChevronDown, UserX, ShieldCheck, FileText,
+  Save, FolderOpen, Plus, LogOut, Loader, Check, AlertTriangle, Trash2, X, Crown, ChevronDown, UserX, ShieldCheck, FileText, Pencil,
 } from 'lucide-react'
 import { listerProjets, supprimerProjet } from '../lib/projets.js'
 import { api } from '../lib/api.js'
@@ -32,7 +33,7 @@ export function Avatar({ profil, size = 34 }) {
   return <span style={{ ...style, fontSize: size * 0.38 }} className="rounded-full grid place-items-center bg-indigo text-white font-bold">{profil.initiales}</span>
 }
 
-export default function AccountMenu({ user, statut, finAbonnement, projetId, etat, onSave, onOpen, onNew, onSignOut, onDeleteAccount, onPremium }) {
+export default function AccountMenu({ user, statut, finAbonnement, projetId, titre = '', etat, onSave, onOpen, onNew, onRename, onSignOut, onDeleteAccount, onPremium }) {
   const profil = profilUtilisateur(user)
   const [menu, setMenu] = useState(false)
   const [ouvert, setOuvert] = useState(false)          // fenêtre « Mes projets »
@@ -43,6 +44,9 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, eta
   const [enCours, setEnCours] = useState(false)
   const [erreurCompte, setErreurCompte] = useState('')
   const [info, setInfo] = useState(null)              // retour de « Renvoyer ma confirmation » : { ton, t }
+  const [nom, setNom] = useState(null)              // fenêtre « Nom du projet » : { mode: 'creer' | 'enregistrer' | 'renommer', valeur }
+  const [editId, setEditId] = useState(null)         // projet en cours de renommage dans « Mes projets »
+  const [editVal, setEditVal] = useState('')
   const ref = useRef(null)
 
   // Fermeture du menu au clic à l'extérieur ou sur Échap.
@@ -55,13 +59,38 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, eta
   }, [menu])
 
   const ouvrir = async () => {
-    setMenu(false); setOuvert(true); setListe(null); setErreur('')
+    setMenu(false); setOuvert(true); setListe(null); setErreur(''); setEditId(null)
     try { setListe(await listerProjets()) } catch (e) { setErreur(e.message) }
   }
   const supprimer = async (p) => {
     if (!window.confirm(`Supprimer définitivement « ${p.titre} » ?`)) return
     try { await supprimerProjet(p.id); setListe((l) => l.filter((x) => x.id !== p.id)); if (p.id === projetId) onNew() } catch (e) { setErreur(e.message) }
   }
+  const demanderNom = (mode, valeur = '') => { setMenu(false); setOuvert(false); setNom({ mode, valeur }) }
+  const validerNom = async () => {
+    if (!nom) return
+    const v = nom.valeur.trim()
+    if (nom.mode !== 'creer' && !v) return
+    const { mode } = nom
+    setNom(null)
+    try {
+      if (mode === 'creer') onNew(v)
+      else if (mode === 'enregistrer') await onSave(v)
+      else await onRename(projetId, v)
+    } catch (e) { setInfo({ ton: 'err', t: e.message || 'Opération impossible pour le moment.' }); setTimeout(() => setInfo(null), 7000) }
+  }
+  const renommerDansListe = async (p) => {
+    const v = editVal.trim()
+    if (!v) return
+    if (v === p.titre) { setEditId(null); return }
+    try {
+      await onRename(p.id, v)
+      setListe((l) => l.map((x) => (x.id === p.id ? { ...x, titre: v } : x)))
+      setEditId(null); setErreur('')
+    } catch (e) { setErreur(e.message) }
+  }
+  const TITRES_NOM = { creer: 'Nouveau projet', enregistrer: 'Nommer et enregistrer le projet', renommer: 'Renommer le projet' }
+
   const confirmerSuppression = async () => {
     setEnCours(true); setErreurCompte('')
     try { await onDeleteAccount() } catch (e) {
@@ -118,8 +147,11 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, eta
             {statut === 'admin' && <p className="px-3 pb-2 text-[11.5px] text-muted flex items-center gap-1.5"><ShieldCheck size={12} /> Accès complet à toutes les fonctionnalités</p>}
 
             <div className="border-t border-line my-1" />
-            <button role="menuitem" className={item} onClick={() => { setMenu(false); onNew() }}><Plus size={15} /> Créer un projet</button>
-            <button role="menuitem" className={item} onClick={() => { setMenu(false); onSave() }} disabled={etat === 'saving'}><Save size={15} /> {projetId ? 'Enregistrer' : 'Enregistrer le projet'}</button>
+            <p className="px-3 pt-1 pb-1.5 text-[11.5px] text-muted truncate">Projet en cours : <b className="text-ink">{titre.trim() || 'sans nom'}</b></p>
+            <button role="menuitem" className={item} onClick={() => demanderNom('creer')}><Plus size={15} /> Créer un projet</button>
+            <button role="menuitem" className={item} onClick={() => demanderNom('renommer', titre)}><Pencil size={15} /> Renommer le projet</button>
+            <button role="menuitem" className={item} disabled={etat === 'saving'}
+              onClick={() => { if (titre.trim()) { setMenu(false); onSave() } else demanderNom('enregistrer') }}><Save size={15} /> {projetId ? 'Enregistrer' : 'Enregistrer le projet'}</button>
             <button role="menuitem" className={item} onClick={ouvrir}><FolderOpen size={15} /> Mes projets <span className="ml-auto text-[11px] text-muted">ouvrir · supprimer</span></button>
             {statut !== 'admin' && statut !== 'local' && (
               <button role="menuitem" className={`${item} text-soleil-deep`} onClick={() => { setMenu(false); onPremium() }}>
@@ -140,6 +172,7 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, eta
         )}
       </div>
 
+      {createPortal(<>
       {info && (
         <div role="status" className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] max-w-[92vw] flex items-center gap-2 rounded-xl2 border bg-card shadow-card px-4 py-2.5 text-[13px] ${info.ton === 'err' ? 'border-laterite/50 text-laterite-deep' : info.ton === 'ok' ? 'border-jade/50 text-jade-deep' : 'border-line text-muted'}`}>
           {info.ton === 'wait' ? <Loader size={14} className="animate-spin" /> : info.ton === 'ok' ? <Check size={14} /> : <AlertTriangle size={14} />}
@@ -149,10 +182,10 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, eta
 
       {ouvert && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 px-4" onClick={() => setOuvert(false)}>
-          <div role="dialog" aria-label="Mes projets" className="w-full max-w-[460px] max-h-[80vh] overflow-auto rounded-xl2 bg-card border border-line shadow-card p-4" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-label="Mes projets" className="w-full max-w-[460px] max-h-[85vh] overflow-auto rounded-xl2 bg-card border border-line shadow-card p-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               <h2 className="font-display font-bold text-[16px] flex-1">Mes projets</h2>
-              <button onClick={() => { onNew(); setOuvert(false) }} className={bouton}><Plus size={14} /> Nouveau</button>
+              <button onClick={() => demanderNom('creer')} className={bouton}><Plus size={14} /> Nouveau</button>
               <button onClick={() => setOuvert(false)} className="p-1 text-muted hover:text-ink" aria-label="Fermer"><X size={16} /></button>
             </div>
             {erreur && <p className="mt-3 text-[12.5px] text-laterite-deep">{erreur}</p>}
@@ -162,10 +195,24 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, eta
               <ul className="mt-3 grid gap-1.5">
                 {liste.map((p) => (
                   <li key={p.id} className={`flex items-center gap-2 rounded-[10px] border px-3 py-2 ${p.id === projetId ? 'border-indigo bg-indigo-soft/40' : 'border-line'}`}>
-                    <button className="flex-1 min-w-0 text-left" onClick={() => { onOpen(p.id); setOuvert(false) }}>
-                      <span className="block truncate text-[13.5px] font-semibold">{p.titre}</span>
-                      <span className="block text-[11.5px] text-muted">Modifié le {fmtDate(p.modifie_le)}</span>
-                    </button>
+                    {editId === p.id ? (
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        <input autoFocus value={editVal} maxLength={120} onChange={(e) => setEditVal(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') renommerDansListe(p); if (e.key === 'Escape') setEditId(null) }}
+                          aria-label="Nouveau nom du projet"
+                          className="flex-1 min-w-0 rounded-[8px] border border-line-strong bg-card px-2 py-1 text-[13.5px] outline-none focus:border-indigo" />
+                        <button onClick={() => renommerDansListe(p)} disabled={!editVal.trim()} className="p-1 text-jade-deep hover:text-jade disabled:opacity-40" title="Valider le nom"><Check size={15} /></button>
+                        <button onClick={() => setEditId(null)} className="p-1 text-muted hover:text-ink" title="Annuler"><X size={15} /></button>
+                      </div>
+                    ) : (
+                      <>
+                        <button className="flex-1 min-w-0 text-left" onClick={() => { onOpen(p.id); setOuvert(false) }}>
+                          <span className="block truncate text-[13.5px] font-semibold">{p.titre}</span>
+                          <span className="block text-[11.5px] text-muted">Modifié le {fmtDate(p.modifie_le)}</span>
+                        </button>
+                        <button onClick={() => { setEditId(p.id); setEditVal(p.titre) }} className="text-muted hover:text-indigo p-1" title="Renommer ce projet"><Pencil size={14} /></button>
+                      </>
+                    )}
                     <button onClick={() => supprimer(p)} className="text-muted hover:text-laterite p-1" title="Supprimer ce projet"><Trash2 size={14} /></button>
                   </li>
                 ))}
@@ -198,6 +245,32 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, eta
           </div>
         </div>
       )}
+
+      {nom && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/40 px-4" onClick={() => setNom(null)}>
+          <div role="dialog" aria-label={TITRES_NOM[nom.mode]} className="w-full max-w-[420px] rounded-xl2 bg-card border border-line shadow-card p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <h2 className="font-display font-bold text-[16px] flex-1">{TITRES_NOM[nom.mode]}</h2>
+              <button onClick={() => setNom(null)} className="p-1 text-muted hover:text-ink" aria-label="Fermer"><X size={16} /></button>
+            </div>
+            <label className="block mt-4 text-[12.5px] font-semibold text-muted" htmlFor="nom-projet">Nom du projet</label>
+            <input id="nom-projet" autoFocus value={nom.valeur} maxLength={120}
+              onChange={(e) => setNom({ ...nom, valeur: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter') validerNom(); if (e.key === 'Escape') setNom(null) }}
+              placeholder="Ex. : Villa R+1 – Cotonou"
+              className="mt-1.5 w-full rounded-[10px] border border-line-strong bg-card px-3 py-2 text-[14px] outline-none focus:border-indigo focus:ring-2 focus:ring-indigo/25" />
+            {nom.mode === 'creer' && <p className="mt-2 text-[12px] text-muted">Facultatif : vous pourrez aussi le nommer plus tard, dans « Renommer le projet ».</p>}
+            {nom.mode === 'enregistrer' && <p className="mt-2 text-[12px] text-muted">Ce nom apparaîtra dans « Mes projets ».</p>}
+            <div className="mt-5 flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setNom(null)}>Annuler</Button>
+              <Button onClick={validerNom} disabled={nom.mode !== 'creer' && !nom.valeur.trim()}>
+                {nom.mode === 'creer' ? 'Créer' : nom.mode === 'enregistrer' ? 'Enregistrer' : 'Renommer'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>, document.body)}
     </>
   )
 }

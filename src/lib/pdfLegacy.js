@@ -66,7 +66,7 @@ export const METRES_COMPLETS = [
 ]
 
 /** Génère et télécharge le PDF dans le navigateur. Lève une erreur en cas d'échec. */
-export async function exportPdfLegacy({ proj, totaux, params, alertes = [], prixInfo, brand, opts, dqe, sousDetail }) {
+export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail }) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -314,9 +314,6 @@ export async function exportPdfLegacy({ proj, totaux, params, alertes = [], prix
     'DQE gros œuvre (terrassement → couverture). HORS SECOND ŒUVRE : assainissement, étanchéité détaillée,',
     'revêtements, faux plafonds, plomberie, électricité, menuiseries. Le total ci-dessus ne représente pas le coût complet du projet.',
   ], [232, 236, 250], [30, 42, 120])
-  if (alertes.length) {
-    blocInfo(`POINTS À VÉRIFIER (${alertes.length})`, alertes.map((a) => `• [${a.niveau.toUpperCase()}] ${a.msg}`), [253, 242, 222], [146, 90, 10])
-  }
   blocInfo('NATURE DES RÉSULTATS', [
     "Estimation établie à partir des dimensions saisies et du barème indiqué.",
     "Elle ne remplace ni un métré d'exécution, ni une étude technique, ni les prix réels du marché :",

@@ -19,6 +19,13 @@ export async function sauverProjet({ id, titre, data }) {
   return ok(await supabase.from('projets').insert(ligne).select('id, modifie_le').single())
 }
 
+/** Renomme un projet (colonne `titre` uniquement ; le titre du dossier est resynchronisé à l'ouverture). */
+export async function renommerProjet(id, titre) {
+  const t = (titre || '').trim()
+  if (!t) throw new Error('Le nom du projet ne peut pas être vide.')
+  return ok(await supabase.from('projets').update({ titre: t }).eq('id', id).select('id, titre').single())
+}
+
 export const supprimerProjet = async (id) => { ok(await supabase.from('projets').delete().eq('id', id)) }
 
 /** Instantané sérialisable de l'état de l'application. */

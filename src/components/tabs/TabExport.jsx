@@ -1,6 +1,6 @@
 // src/components/tabs/TabExport.jsx
 import React, { useState, useRef } from 'react'
-import { FileDown, Loader, Image as ImageIcon, X, Palette, BadgeCheck, MapPin, Phone, Mail } from 'lucide-react'
+import { FileDown, Loader, Image as ImageIcon, X, Palette, BadgeCheck, MapPin, Phone, Mail, Plus, AlertOctagon } from 'lucide-react'
 import { Card, Button, SectionTitle, Label, Input, Badge } from '../ui/index.jsx'
 import { buildDQE, montantsIncomplets, exportAutorise } from '../../lib/metre.js'
 import ValidationExceptions from '../ValidationExceptions.jsx'
@@ -10,6 +10,23 @@ import { pdfServeur, telecharger } from '../../lib/pdfServeur.js'
 import { exportPdfLegacy } from '../../lib/pdfLegacy.js'
 
 const PRESETS = ['#1e2a78', '#e0532f', '#0fa36b', '#17b3c7', '#7c3aed', '#0f172a']
+
+// Bouton « + » : teintes supplémentaires, toutes assez foncées pour que le texte blanc de l'en-tête reste lisible.
+const PALETTE_PLUS = [
+  { nom: 'Bleus', couleurs: ['#1e3a8a', '#1d4ed8', '#2563eb', '#0369a1', '#0e7490', '#155e75'] },
+  { nom: 'Verts', couleurs: ['#14532d', '#166534', '#15803d', '#0f766e', '#0a7d51', '#4d7c0f'] },
+  { nom: 'Rouges et oranges', couleurs: ['#7f1d1d', '#b91c1c', '#c0391b', '#c2410c', '#b45309', '#a16207'] },
+  { nom: 'Violets et roses', couleurs: ['#4c1d95', '#6d28d9', '#86198f', '#a21caf', '#be185d', '#9f1239'] },
+  { nom: 'Neutres', couleurs: ['#0f172a', '#1f2937', '#374151', '#44403c', '#57534e', '#334155'] },
+]
+const HEX = /^#[0-9a-f]{6}$/i
+// Luminance relative (WCAG) : au-delà de 0,3, le texte blanc de l'en-tête devient difficile à lire.
+const luminance = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+const NIVEAUX_BLOQUANTS = ['bloquante', 'erreur', 'error', 'critique']
 
 export default function TabExport({ proj, totaux, prix, params, setParams, alertes = [], couverture, prixInfo }) {
   const [loading, setLoading] = useState(false)
@@ -27,13 +44,24 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
     ifu: '',
   })
   const logoRef = useRef(null)
+  const [plusCouleurs, setPlusCouleurs] = useState(false)
+  const [hexSaisi, setHexSaisi] = useState(null) // saisie en cours dans le champ #RRGGBB (null : suit la couleur choisie)
 
   const prixMap = Object.fromEntries(prix.map((p) => [p.code, p.pu]))
   const dqe = buildDQE(totaux, prixMap, params.K || 1.3)
   const sousDetail = buildSousDetail(dqe.lignes, prixMap, params.K || 1.3)
   // Une donnée « à confirmer » bloque l'export ; une valeur par défaut explicitement confirmée ne le bloque plus.
   // La trace de confirmation reste dans le projet : le PDF client n'en contient aucune.
-  const autorise = exportAutorise(couverture)
+  // Erreur ou donnée manquante : le PDF n'est pas généré et chaque cause est listée en rouge.
+  // Aucune déclaration n'est imprimée dans le PDF lui-même.
+  const blocages = [
+    ...alertes.filter((a) => NIVEAUX_BLOQUANTS.includes(a.niveau)).map((a) => `Erreur : ${a.msg}`),
+    ...(couverture?.aConfirmer || []).filter((x) => x.etat === 'a_confirmer').map((x) => `Donnée à confirmer : ${x.sujet}`),
+    ...(dqe.sansPrix || []).map((l) => `Prix manquant : poste ${l.n} — ${l.des}`),
+  ]
+  const autorise = exportAutorise(couverture) && blocages.length === 0
+  const couleurTropClaire = HEX.test(brand.color) && luminance(brand.color) > 0.3
+  const choisirCouleur = (c) => { setHexSaisi(null); setBrand((b) => ({ ...b, color: c })) }
   const montants = montantsIncomplets(dqe, couverture)
   const montantIncomplet = montants.reduce((s, m) => s + m.montant, 0)
 
@@ -51,7 +79,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
     if (!autorise) return
     setLoading(true)
     setInfo('')
-    const ctx = { proj, totaux, params, alertes, prixInfo, brand, opts, dqe, sousDetail }
+    const ctx = { proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail }
     const nom = `BPU_DQE_${(proj.titre || 'projet').replace(/[^\w\-]+/g, '_')}_${fmtDate(new Date()).replace(/\//g, '-')}.pdf`
     try {
       // 1) Rendu HTML/CSS côté serveur (qualité maximale).
@@ -127,13 +155,50 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
               onChange={(e) => setBrand((b) => ({ ...b, color: e.target.value }))}
               className="w-10 h-10 rounded-[8px] border border-line bg-card cursor-pointer p-0.5" />
             {PRESETS.map((c) => (
-              <button key={c} onClick={() => setBrand((b) => ({ ...b, color: c }))}
+              <button key={c} onClick={() => choisirCouleur(c)}
                 className="w-7 h-7 rounded-full border-2 transition-transform hover:scale-110"
                 style={{ background: c, borderColor: brand.color === c ? '#221a16' : 'transparent' }}
                 aria-label={c} />
             ))}
+            <button onClick={() => setPlusCouleurs((v) => !v)} aria-expanded={plusCouleurs} aria-label="Plus de couleurs" title="Plus de couleurs"
+              className={`w-7 h-7 rounded-full border-2 grid place-items-center transition-all hover:scale-110 ${plusCouleurs ? 'bg-ink text-white border-ink rotate-45' : 'bg-card text-muted border-line-strong hover:text-ink hover:border-ink'}`}>
+              <Plus size={14} />
+            </button>
             <span className="font-mono text-[12px] text-muted ml-1">{brand.color}</span>
           </div>
+
+          {plusCouleurs && (
+            <div className="mt-3 rounded-xl2 border border-line bg-muted-bg/60 p-3 grid gap-3">
+              {PALETTE_PLUS.map((g) => (
+                <div key={g.nom}>
+                  <p className="text-[11.5px] font-semibold text-muted mb-1.5">{g.nom}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {g.couleurs.map((c) => (
+                      <button key={c} onClick={() => choisirCouleur(c)}
+                        className="w-7 h-7 rounded-full border-2 transition-transform hover:scale-110"
+                        style={{ background: c, borderColor: brand.color === c ? '#221a16' : 'transparent' }}
+                        aria-label={c} title={c} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div>
+                <Label>Code couleur exact (#RRGGBB)</Label>
+                <Input value={hexSaisi ?? brand.color} maxLength={7} spellCheck={false} className="font-mono max-w-[160px]"
+                  onChange={(e) => {
+                    const v = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`
+                    setHexSaisi(v)
+                    if (HEX.test(v)) setBrand((b) => ({ ...b, color: v.toLowerCase() }))
+                  }}
+                  onBlur={() => setHexSaisi(null)} />
+              </div>
+            </div>
+          )}
+          {couleurTropClaire && (
+            <p role="status" className="mt-2 text-[12px] font-semibold text-soleil-deep">
+              Cette couleur est claire : le texte blanc de l'en-tête sera difficile à lire. Choisissez une teinte plus foncée.
+            </p>
+          )}
         </div>
 
         {/* Slogan */}
@@ -238,8 +303,8 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
           <p>Projet : <b>{proj.titre || proj.entreprise || '(non renseigné)'}</b></p>
           <p className="mt-1">Total HT : <b>{fmtCFA(dqe.ht)}</b> · TTC : <b>{fmtCFA(dqe.ttc)}</b> <span className="text-muted">(gros œuvre uniquement)</span></p>
           {alertes.length > 0 && (
-            <p className="text-soleil-deep text-[12px] mt-1 font-semibold">
-              ⚠ {alertes.length} point(s) à vérifier seront imprimés dans le PDF — contrôlez-les dans l'onglet DQE.
+            <p className="text-muted text-[12px] mt-1">
+              {alertes.length} point(s) signalé(s) dans l'onglet DQE — ils ne sont pas imprimés dans le PDF.
             </p>
           )}
           <p className="text-muted text-[12px] mt-1">{dqe.lignes.length} postes · K = {params.K} · TVA 18 %</p>
@@ -254,6 +319,19 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
           </p>
         </div>
 
+        {!autorise && (
+          <div role="alert" className="mb-4 rounded-xl2 border border-laterite/40 bg-laterite-soft px-3.5 py-3 text-laterite-deep text-[13px]">
+            <p className="flex items-center gap-2 font-bold"><AlertOctagon size={16} className="shrink-0" /> Impossible de générer le PDF</p>
+            <p className="mt-1">Corrigez ou complétez les points suivants, puis réessayez :</p>
+            {blocages.length > 0 && (
+              <ul className="mt-2 grid gap-1 list-disc pl-5">
+                {blocages.map((b, i) => <li key={i}>{b}</li>)}
+              </ul>
+            )}
+            {montantIncomplet > 0 && <p className="mt-2 text-[12.5px] font-semibold">{fmtCFA(montantIncomplet)} HT du devis dépendent de données encore à confirmer.</p>}
+          </div>
+        )}
+
         <Button variant="accent" onClick={handleExport} disabled={loading || dqe.lignes.length === 0 || !autorise} className="w-full sm:w-auto">
           {loading ? <Loader size={15} className="animate-spin" /> : <FileDown size={15} />}
           {loading ? 'Génération…' : 'Télécharger le PDF personnalisé'}
@@ -265,9 +343,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
             Aucune donnée à exporter — saisissez des dimensions dans l'onglet <b>Niveaux & métré</b>.
           </p>
         )}
-        {autorise
-          ? <Badge variant="ok" className="mt-3"><FileDown size={12} /> Aucune donnée à confirmer — prêt à transmettre</Badge>
-          : <p role="alert" className="text-[12.5px] text-laterite-deep font-semibold mt-3">Export bloqué : confirmez ou corrigez les données signalées ci-dessus{montantIncomplet > 0 ? ` (${fmtCFA(montantIncomplet)} HT du devis en dépendent)` : ''}.</p>}
+        {autorise && <Badge variant="ok" className="mt-3"><FileDown size={12} /> Aucune erreur ni donnée manquante — prêt à transmettre</Badge>}
       </Card>
     </div>
   )

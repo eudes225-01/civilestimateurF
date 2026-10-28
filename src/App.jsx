@@ -20,7 +20,7 @@ import AuthGate from './components/AuthGate.jsx'
 import AccountMenu from './components/AccountMenu.jsx'
 import PremiumModal from './components/PremiumModal.jsx'
 import { EtiquettePremium } from './components/StatutBadge.jsx'
-import { sauverProjet, chargerProjet, instantane } from './lib/projets.js'
+import { sauverProjet, chargerProjet, instantane, renommerProjet as renommerEnBase } from './lib/projets.js'
 import { metrerProjet, PARAMS_DEFAUT, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT } from './lib/metre.js'
 
 const TABS = [
@@ -126,10 +126,14 @@ export default function App() {
   const minuteur = useRef(null)
   const sautSauvegarde = useRef(false) // vrai juste après l'ouverture d'un projet : rien de modifié à enregistrer
 
-  const sauvegarder = async () => {
+  // nomForce : nom saisi dans la fenêtre « Nommer le projet » (un projet sans titre n'est jamais enregistré à l'aveugle).
+  const sauvegarder = async (nomForce) => {
+    const nomOk = typeof nomForce === 'string' && nomForce.trim() ? nomForce.trim() : null
+    const projCourant = nomOk ? { ...proj, titre: nomOk } : proj
+    if (nomOk) setProj(projCourant)
     setEtatSauvegarde('saving')
     try {
-      const r = await sauverProjet({ id: projetId, titre: proj.titre, data: instantane({ proj, params, levels, prix, depots, conserves }) })
+      const r = await sauverProjet({ id: projetId, titre: projCourant.titre, data: instantane({ proj: projCourant, params, levels, prix, depots, conserves }) })
       if (!projetId) setProjetId(r.id)
       setEtatSauvegarde('saved')
     } catch { setEtatSauvegarde('error') }
@@ -151,7 +155,9 @@ export default function App() {
       const d = p.data || {}
       clearTimeout(minuteur.current)
       sautSauvegarde.current = true
-      setProj({ ...projVide(), ...(d.proj || {}) })
+      // Le nom du projet est celui de la colonne `titre` (modifiable depuis « Mes projets »), pas celui du dossier.
+      const titreBase = p.titre && p.titre !== 'Projet sans titre' ? p.titre : (d.proj?.titre || '')
+      setProj({ ...projVide(), ...(d.proj || {}), titre: titreBase })
       setParams({ ...paramsVides(), ...(d.params || {}) })
       setLevels(Array.isArray(d.levels) && d.levels.length ? d.levels : niveauxVides())
       setPrix((cur) => cur.map((x) => ({ ...x, pu: d.prixModifies && x.code in d.prixModifies ? d.prixModifies[x.code] : (x.sac ?? x.bi) })))
@@ -160,11 +166,19 @@ export default function App() {
     } catch { setEtatSauvegarde('error') }
   }
 
-  const nouveauProjet = () => {
+  const nouveauProjet = (nom) => {
     clearTimeout(minuteur.current)
-    setProj(projVide()); setParams(paramsVides()); setLevels(niveauxVides())
+    setProj({ ...projVide(), titre: typeof nom === 'string' ? nom.trim() : '' }); setParams(paramsVides()); setLevels(niveauxVides())
     setPrix((cur) => cur.map((x) => ({ ...x, pu: x.sac ?? x.bi })))
     setDepots({}); setConserves({}); setProjetId(null); setEtatSauvegarde('idle'); setTab('projet')
+  }
+
+  // Renomme un projet : le projet ouvert (ou pas encore enregistré) change aussi de titre à l'écran.
+  const renommerProjet = async (id, titre) => {
+    const t = (titre || '').trim()
+    if (!t) return
+    if (!id || id === projetId) setProj((p) => ({ ...p, titre: t }))
+    if (id) await renommerEnBase(id, t)
   }
 
   const { totaux, alertes, couverture } = useMemo(() => metrerProjet(levels, params), [levels, params])
@@ -205,8 +219,8 @@ export default function App() {
           </button>
           {comptes && session?.user && (
             <AccountMenu user={session.user} statut={abo.statut} finAbonnement={abo.etat?.finAbonnement}
-              projetId={projetId} etat={etatSauvegarde}
-              onSave={sauvegarder} onOpen={ouvrirProjet} onNew={nouveauProjet}
+              projetId={projetId} titre={proj.titre} etat={etatSauvegarde}
+              onSave={sauvegarder} onOpen={ouvrirProjet} onNew={nouveauProjet} onRename={renommerProjet}
               onSignOut={deconnecter} onDeleteAccount={supprimerCompte} onPremium={() => setPremiumOuvert(true)} />
           )}
         </div>

@@ -7,7 +7,7 @@ import { fmtDate, fmtMois } from './format.js'
 import { METRES_COMPLETS } from './pdfLegacy.js'
 
 /** Modèle sérialisable du document (tout est déjà calculé : le serveur ne recalcule rien). */
-export function construireModele({ proj, totaux, params, alertes = [], prixInfo, brand, opts, dqe, sousDetail }) {
+export function construireModele({ proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail }) {
   return {
     proj: { titre: proj.titre, mo: proj.mo, entreprise: proj.entreprise, ref: proj.ref, ville: proj.ville },
     brand: {
@@ -26,7 +26,9 @@ export function construireModele({ proj, totaux, params, alertes = [], prixInfo,
     metres: METRES_COMPLETS
       .filter(([k]) => Math.round((+totaux[k] || 0) * 100) !== 0)
       .map(([k, lib, u]) => ({ lib, q: +totaux[k], u })),
-    alertes: alertes.map((a) => ({ niveau: a.niveau, msg: a.msg })),
+    // Aucune déclaration (points à vérifier) dans le document remis au client : s'il y en a de bloquantes,
+    // l'export est refusé en amont (TabExport) ; les autres se consultent dans l'onglet DQE.
+    alertes: [],
     meta: {
       K: params.K || 1.3,
       toiture: totaux.toiture?.lab || '',
