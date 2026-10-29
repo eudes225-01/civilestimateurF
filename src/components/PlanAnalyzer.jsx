@@ -102,8 +102,9 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
           </div>
         )}
 
-        {/* Vidéo facultative, annoncée avant les dépôts (démarrage automatique à la première visite) */}
-        {premium && <VideoGuideIFC />}
+        {/* Vidéo facultative, visible par tous (y compris sans abonnement) : elle donne envie de passer Premium.
+            Seuls les dépôts restent verrouillés. */}
+        <VideoGuideIFC />
 
         <PlanDeposits depots={depots} setDepots={changerDepots} disabled={busy || !premium} verrouille={!premium} />
 

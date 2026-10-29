@@ -5,7 +5,7 @@
 //    l'utilisateur arrive sur les dépôts ; ensuite elle reste repliée, à ouvrir à la demande ;
 //  • facultative : un bouton la masque à tout moment, et elle s'arrête alors ;
 //  • le lien se règle dans src/config/video.js (ou VITE_VIDEO_IFC_URL) ; sans lien, rien n'est affiché.
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { PlayCircle, X, Volume2 } from 'lucide-react'
 import { Button } from './ui/index.jsx'
 import { useAuth } from '../lib/auth.jsx'
@@ -20,6 +20,7 @@ export default function VideoGuideIFC({ url = VIDEO_IFC_URL, titre = VIDEO_IFC_T
   const video = analyserLienVideo(url)
   const [ouverte, setOuverte] = useState(false)
   const [auto, setAuto] = useState(false)
+  const sectionRef = useRef(null)
 
   // Première connexion : ouverture + lecture automatiques, une seule fois par utilisateur et par vidéo.
   useEffect(() => {
@@ -35,7 +36,13 @@ export default function VideoGuideIFC({ url = VIDEO_IFC_URL, titre = VIDEO_IFC_T
 
   // Bouton « Comment créer un IFC ? » de la zone de dépôt IFC.
   useEffect(() => {
-    const ouvrir = () => { setOuverte(true); setAuto(true) }
+    const ouvrir = () => {
+      setOuverte(true); setAuto(true)
+      // Défilement fluide vers la vidéo (après le rendu, pour viser le lecteur une fois déployé).
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }))
+    }
     window.addEventListener(EVT_OUVRIR_VIDEO_IFC, ouvrir)
     return () => window.removeEventListener(EVT_OUVRIR_VIDEO_IFC, ouvrir)
   }, [])
@@ -43,7 +50,7 @@ export default function VideoGuideIFC({ url = VIDEO_IFC_URL, titre = VIDEO_IFC_T
   if (!video) return null
 
   return (
-    <section aria-label={titre} className="mb-4 rounded-xl2 border border-lagune/30 bg-lagune-soft/40 p-4">
+    <section ref={sectionRef} id="video-ifc" aria-label={titre} className="mb-4 scroll-mt-24 rounded-xl2 border border-lagune/30 bg-lagune-soft/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="font-display font-semibold text-[14px] inline-flex items-center gap-2"><PlayCircle size={17} className="text-lagune-deep" /> Tutoriel vidéo : {titre.toLowerCase()}</h3>

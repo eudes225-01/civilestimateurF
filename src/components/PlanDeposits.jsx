@@ -108,16 +108,16 @@ function DepotIFC({ files, onAdd, onRemove, disabled }) {
   }
   const f = files[0]
   return (
-    <div className={`rounded-xl2 border-2 p-4 bg-card ${f ? 'border-jade bg-jade-soft/40' : 'border-line'} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`rounded-xl2 border-2 p-4 bg-card ${f ? 'border-jade bg-jade-soft/40' : 'border-line'}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex items-start gap-2.5 min-w-0">
+        <div className={`flex items-start gap-2.5 min-w-0 ${disabled ? 'opacity-60' : ''}`}>
           <div className="shrink-0 w-9 h-9 rounded-[10px] grid place-items-center text-white bg-jade"><Boxes size={18} /></div>
           <div className="min-w-0">
             <h3 className="font-display font-semibold text-[14px] leading-tight">Maquette IFC <span className="ml-1.5 align-middle text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-muted-bg text-muted border border-line">Facultatif</span></h3>
             <p className="text-[11.5px] text-muted leading-snug mt-0.5">Exportée depuis ArchiCAD, Revit, Allplan… Les murs, dalles, poteaux, poutres, portes et fenêtres sont repris du fichier au lieu d'être lus sur l'image.</p>
           </div>
         </div>
-        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(EVT_OUVRIR_VIDEO_IFC))}
+        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(EVT_OUVRIR_VIDEO_IFC))} data-testid="btn-video-ifc"
           className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-semibold text-lagune-deep hover:underline"><PlayCircle size={14} /> Comment créer un IFC ?</button>
       </div>
       <div
@@ -125,7 +125,7 @@ function DepotIFC({ files, onAdd, onRemove, disabled }) {
         onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); ajouter(e.dataTransfer.files) }}
-        className={`mt-3 cursor-pointer rounded-[10px] border-2 border-dashed px-3 py-3 text-center text-[12.5px] transition-all ${drag ? 'border-jade bg-jade-soft scale-[1.01]' : 'border-line-strong bg-muted-bg/50 hover:border-jade hover:bg-jade-soft/40'}`}
+        className={`mt-3 cursor-pointer rounded-[10px] border-2 border-dashed px-3 py-3 text-center text-[12.5px] transition-all ${disabled ? 'opacity-60 pointer-events-none' : ''} ${drag ? 'border-jade bg-jade-soft scale-[1.01]' : 'border-line-strong bg-muted-bg/50 hover:border-jade hover:bg-jade-soft/40'}`}
       >
         <input ref={inputRef} type="file" accept=".ifc" className="sr-only" data-testid="depot-ifc"
           onChange={(e) => { ajouter(e.target.files); e.target.value = '' }} />
