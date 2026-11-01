@@ -1,7 +1,9 @@
 // src/components/AuthGate.jsx
-// Écran de connexion : compte Google obligatoire pour utiliser l'application.
+// Page d'accueil publique : présente CivilEstimator sans connexion (exigence Google pour la validation
+// de la marque), avec liens vers la politique de confidentialité et les conditions. Le bouton
+// « Continuer avec Google » ouvre la connexion (compte Google obligatoire pour utiliser l'application).
 import React from 'react'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, Calculator, Ruler, FileText } from 'lucide-react'
 import { Card, Button } from './ui/index.jsx'
 import { LogoMark, LogoWord } from './Logo.jsx'
 import HeroDecor from './HeroDecor.jsx'
@@ -16,23 +18,64 @@ const Google = () => (
   </svg>
 )
 
+const FONCTIONS = [
+  { Icone: Ruler, t: 'Métré automatique', d: 'Quantités de gros œuvre calculées à partir de vos dimensions ou de vos plans, selon le Guide du métré (Bénin).' },
+  { Icone: Calculator, t: 'DQE en francs CFA', d: 'Devis quantitatif estimatif avec sous-détail des prix unitaires, sur la base du barème RPR, que vous pouvez ajuster ligne par ligne.' },
+  { Icone: FileText, t: 'Projets enregistrés', d: 'Vos projets sont rattachés à votre compte et retrouvables à chaque visite ; export PDF professionnel du devis.' },
+]
+
 export default function AuthGate() {
   const { connecterGoogle, erreur } = useAuth()
   return (
-    <div className="relative min-h-screen grid place-items-center px-4 overflow-hidden gradient-hero animate-drift">
+    <div className="relative min-h-screen overflow-hidden gradient-hero animate-drift flex flex-col">
       <HeroDecor dense />
-      <Card className="relative z-10 w-full max-w-[400px] p-7 text-center shadow-glow" accent="indigo">
-        <div className="flex justify-center"><LogoMark size={56} glow /></div>
-        <div className="mt-3 flex justify-center"><LogoWord /></div>
-        <h1 className="mt-5 font-display font-bold text-[20px]">Connectez-vous pour continuer</h1>
-        <p className="mt-1.5 text-[13px] text-muted">Votre compte Google crée votre espace : vos projets y sont enregistrés et retrouvables à chaque visite.</p>
-        <Button onClick={connecterGoogle} variant="outline" size="lg" className="mt-5 w-full"><Google /> Continuer avec Google</Button>
-        {erreur && <p role="alert" className="mt-3 text-[12.5px] text-laterite-deep">{erreur}</p>}
-        <p className="mt-4 flex items-start gap-1.5 text-left text-[11.5px] text-muted">
-          <ShieldCheck size={14} className="shrink-0 mt-0.5 text-jade" />
-          Seuls votre nom et votre e-mail sont utilisés. Aucun mot de passe n'est géré par l'application.
-        </p>
-      </Card>
+      <main className="relative z-10 flex-1 px-4 py-8 sm:py-12">
+        <div className="mx-auto w-full max-w-[900px] grid gap-5 md:grid-cols-[1.25fr_1fr] items-start">
+          <Card className="p-6 sm:p-7" accent="laterite">
+            <div className="flex items-center gap-3">
+              <LogoMark size={48} glow />
+              <LogoWord />
+            </div>
+            <h1 className="mt-5 font-display font-bold text-[24px] leading-tight">CivilEstimator</h1>
+            <p className="mt-1 font-display font-semibold text-[15px] text-muted">Métré et devis estimatif (DQE) pour la construction au Bénin</p>
+            <p className="mt-3 text-[13.5px] text-muted leading-relaxed">
+              CivilEstimator calcule les quantités, le devis quantitatif estimatif et le sous-détail des prix de vos projets
+              de construction, en francs CFA. Il s'adresse aux professionnels du bâtiment et aux particuliers qui préparent un chantier.
+            </p>
+            <ul className="mt-4 space-y-3">
+              {FONCTIONS.map(({ Icone, t, d }) => (
+                <li key={t} className="flex items-start gap-3">
+                  <Icone size={18} className="mt-0.5 shrink-0 text-laterite" aria-hidden="true" />
+                  <div>
+                    <b className="text-[13.5px]">{t}</b>
+                    <p className="text-[12.5px] text-muted leading-relaxed">{d}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <Card className="p-6 text-center shadow-glow" accent="indigo">
+            <h2 className="font-display font-bold text-[18px]">Connectez-vous pour continuer</h2>
+            <p className="mt-1.5 text-[13px] text-muted">Votre compte Google crée votre espace : vos projets y sont enregistrés et retrouvables à chaque visite.</p>
+            <Button onClick={connecterGoogle} variant="outline" size="lg" className="mt-5 w-full"><Google /> Continuer avec Google</Button>
+            {erreur && <p role="alert" className="mt-3 text-[12.5px] text-laterite-deep">{erreur}</p>}
+            <p className="mt-4 flex items-start gap-1.5 text-left text-[11.5px] text-muted">
+              <ShieldCheck size={14} className="shrink-0 mt-0.5 text-jade" />
+              Seuls votre nom, votre e-mail et votre photo de profil Google sont utilisés. Aucun mot de passe n'est géré par l'application.
+              Détails dans notre <a className="underline text-indigo" href="/confidentialite.html">politique de confidentialité</a>.
+            </p>
+          </Card>
+        </div>
+      </main>
+      <footer className="relative z-10 px-4 pb-6">
+        <div className="mx-auto max-w-[900px] rounded-xl2 bg-card/90 border border-line px-4 py-3 text-[12px] text-muted flex flex-wrap items-center justify-center gap-x-5 gap-y-1">
+          <a className="underline-offset-2 hover:text-ink hover:underline" href="/confidentialite.html">Politique de confidentialité</a>
+          <a className="underline-offset-2 hover:text-ink hover:underline" href="/conditions.html">Conditions d'utilisation</a>
+          <a className="underline-offset-2 hover:text-ink hover:underline" href="mailto:archinova87@gmail.com">Contact</a>
+          <span>© ArchiNova</span>
+        </div>
+      </footer>
     </div>
   )
 }
