@@ -17,6 +17,9 @@ const Google = () => (
   </svg>
 )
 
+// Même lien « ArchiNova » que le pied de page de l'application (VITE_PORTFOLIO_URL).
+const PORTFOLIO_URL = import.meta.env.VITE_PORTFOLIO_URL || ''
+
 const FONCTIONS = [
   { Icone: Ruler, t: 'Métré automatique', d: 'Quantités de gros œuvre calculées à partir de vos dimensions ou de vos plans, selon le Guide du métré (Bénin).' },
   { Icone: Calculator, t: 'DQE en francs CFA', d: 'Devis quantitatif estimatif avec sous-détail des prix unitaires, sur la base du barème RPR que vous ajustez ligne par ligne.' },
@@ -94,7 +97,15 @@ export default function AuthGate() {
             <a className="underline-offset-4 hover:underline" href="/conditions.html">Conditions d'utilisation</a>
             <a className="underline-offset-4 hover:underline" href="mailto:archinova87@gmail.com">Contact</a>
           </nav>
-          <span>© ArchiNova · CivilEstimator</span>
+          <span>
+            © {new Date().getFullYear()}{' '}
+            {PORTFOLIO_URL ? (
+              <a href={PORTFOLIO_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline-offset-4 hover:underline">ArchiNova</a>
+            ) : (
+              <span className="font-semibold">ArchiNova</span>
+            )}{' '}
+            — Tous droits réservés
+          </span>
         </div>
       </footer>
     </div>
