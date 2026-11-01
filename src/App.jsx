@@ -19,6 +19,7 @@ import Paywall from './components/Paywall.jsx'
 import AuthGate from './components/AuthGate.jsx'
 import AccountMenu from './components/AccountMenu.jsx'
 import PremiumModal from './components/PremiumModal.jsx'
+import { APP_GRATUITE } from './config/mode.js'
 import { EtiquettePremium } from './components/StatutBadge.jsx'
 import { sauverProjet, chargerProjet, instantane, renommerProjet as renommerEnBase } from './lib/projets.js'
 import { metrerProjet, PARAMS_DEFAUT, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT } from './lib/metre.js'
@@ -296,7 +297,7 @@ export default function App() {
 
       <Footer prix={prixInfo} />
 
-      <PremiumModal ouvert={premiumOuvert} onFermer={() => setPremiumOuvert(false)} abo={abo} />
+      {!APP_GRATUITE && <PremiumModal ouvert={premiumOuvert} onFermer={() => setPremiumOuvert(false)} abo={abo} />}
 
       {transitioning && pendingTab && (
         <TabTransition

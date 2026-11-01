@@ -384,6 +384,7 @@ export async function analyzePlans(depots = {}, opts = {}) {
   }
 
   const lectures = []
+  let guideIFC = null   // guide d'export (ArchiCAD) renvoyé par le lecteur quand la maquette est refusée
   let fait = 0
   const total = fichiers.length + ifcFichiers.length
   const dire = (message) => onProgress({ fait, total, message })
@@ -395,6 +396,7 @@ export async function analyzePlans(depots = {}, opts = {}) {
     try { res = lireIFC(await file.text()) } catch (e) { res = { ok: false, message: `lecture impossible (${e.message || 'erreur'})` } }
     if (!res.ok) {
       // Facultative : une maquette illisible n'empêche pas la lecture des plans PDF.
+      if (res.guide) guideIFC = res.guide
       lectures.push({ type: null, data: null, vue: { nom: 'Maquette IFC', fichier: file.name, typeDepose: 'ifc', type: null, reclasse: false, source: 'ifc', confiance: 'basse', message: `Maquette IFC « ${file.name} » non utilisée : ${res.message}` } })
     } else {
       res.niveaux.forEach((niv, i) => lectures.push({
@@ -474,7 +476,13 @@ export async function analyzePlans(depots = {}, opts = {}) {
   }
 
   const ex = consolider(lectures)
-  if (estVide(ex)) return { ok: false, code: 'empty', message: 'Aucune donnée exploitable détectée sur les plans déposés.' }
+  if (estVide(ex)) {
+    // Si une maquette IFC a été refusée, on affiche sa vraie raison plutôt qu'un message générique.
+    const msgIFC = lectures.find((l) => l.vue?.source === 'ifc' && l.vue.message)?.vue.message
+    return { ok: false, code: 'empty', message: msgIFC || 'Aucune donnée exploitable détectée sur les plans déposés.', guide: guideIFC }
+  }
+  // Maquette refusée mais d'autres plans lus : le guide reste disponible à l'écran de vérification.
+  if (guideIFC) ex.guideIFC = guideIFC
   return { ok: true, data: ex }
 }
 

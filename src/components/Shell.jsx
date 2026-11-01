@@ -14,13 +14,22 @@ import Conditions from './Conditions.jsx'
 import { POLITIQUES_RESUME, POLITIQUES_VERSION } from '../data/politiques.js'
 import { api } from '../lib/api.js'
 
+import { APP_GRATUITE } from '../config/mode.js'
+
 // Lien « ArchiNova » du pied de page → site portfolio de l'équipe (VITE_PORTFOLIO_URL).
 const PORTFOLIO_URL = import.meta.env.VITE_PORTFOLIO_URL || ''
+
+// Résumé des conditions : en version gratuite, plus de mention du Premium ni du paiement.
+const RESUME_CONDITIONS = APP_GRATUITE
+  ? POLITIQUES_RESUME
+    .filter((p) => !/Premium se paie/.test(p))
+    .map((p) => (/Premium\s*:/.test(p) ? 'Gratuit avec un compte : projets, niveaux & métré, prix modifiables, DQE complet, dépôt et lecture automatique des plans, export PDF professionnel.' : p))
+  : POLITIQUES_RESUME
 
 /* ─── Onboarding ────────────────────────────────────────────────────────────── */
 const ATOUTS = [
   { Ic: Calculator, t: 'Métré automatique', c: 'Quantités, dosages et totaux calculés à partir de vos dimensions.', col: 'indigo' },
-  { Ic: FileCheck2, t: 'DQE gratuit & export PDF', c: 'Devis quantitatif estimatif en francs CFA ; export PDF professionnel avec Premium.', col: 'laterite' },
+  { Ic: FileCheck2, t: APP_GRATUITE ? 'DQE & export PDF gratuits' : 'DQE gratuit & export PDF', c: APP_GRATUITE ? 'Devis quantitatif estimatif en francs CFA ; export PDF professionnel, sans abonnement.' : 'Devis quantitatif estimatif en francs CFA ; export PDF professionnel avec Premium.', col: 'laterite' },
   { Ic: ScanLine, t: 'Plans par type', c: 'Fondation, étages, coupe, plomberie, électricité, poutraison, toiture, coffrage : chaque plan est lu et calculé à part.', col: 'jade' },
 ]
 
@@ -57,7 +66,7 @@ export function Onboarding({ onStart }) {
           </h1>
           <p className="max-w-[600px] mx-auto mt-4 text-[15px] sm:text-[16px] text-white/85 animate-fade-up [animation-delay:160ms]">
             Saisissez vos dimensions : le calcul automatique sort les quantités, vous ajustez
-            les prix à votre réalité de terrain. Connexion avec Google ; le DQE est gratuit, le dépôt de plans et l'export PDF sont réservés aux comptes Premium.
+            les prix à votre réalité de terrain. Connexion avec Google ; {APP_GRATUITE ? "le DQE, le dépôt de plans et l'export PDF sont gratuits." : "le DQE est gratuit, le dépôt de plans et l'export PDF sont réservés aux comptes Premium."}
           </p>
         </div>
 
@@ -105,11 +114,11 @@ export function Onboarding({ onStart }) {
             <div className="w-[46px] h-[46px] rounded-[13px] grid place-items-center mb-3.5 bg-indigo text-white shadow-glow">
               <Calculator size={24} />
             </div>
-            <Badge variant="ind" className="mb-2">DQE gratuit · plans &amp; PDF en Premium</Badge>
+            <Badge variant="ind" className="mb-2">{APP_GRATUITE ? 'DQE, plans & PDF gratuits' : 'DQE gratuit · plans & PDF en Premium'}</Badge>
             <h3 className="text-[18px] font-display font-bold">Commencer l'estimation</h3>
             <p className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
-              Déposez vos plans avec Premium (fondation, étages, coupe, plomberie, électricité, poutraison, toiture, coffrage) ou saisissez vos dimensions gratuitement :
-              chaque type de plan est lu et calculé avec le module qui lui correspond. Vous <b className="text-ink">modifiez chaque prix unitaire</b> ; le DQE est gratuit, l'export PDF est Premium.
+              Déposez vos plans{APP_GRATUITE ? '' : ' avec Premium'} (fondation, étages, coupe, plomberie, électricité, poutraison, toiture, coffrage) ou saisissez vos dimensions gratuitement :
+              chaque type de plan est lu et calculé avec le module qui lui correspond. Vous <b className="text-ink">modifiez chaque prix unitaire</b> ; {APP_GRATUITE ? "le DQE et l'export PDF sont gratuits." : "le DQE est gratuit, l'export PDF est Premium."}
             </p>
             <span className="mt-4 font-semibold text-[13.5px] text-indigo inline-flex gap-1.5 items-center group-hover:gap-2.5 transition-all">
               Ouvrir l'atelier <ArrowRight size={15} />
@@ -148,7 +157,7 @@ export function Onboarding({ onStart }) {
 
             {openPol && (
               <ul className="px-4 pb-4 pt-0 grid gap-2 animate-fade-in">
-                {POLITIQUES_RESUME.map((p, i) => (
+                {RESUME_CONDITIONS.map((p, i) => (
                   <li key={i} className="flex gap-2.5 text-[12.5px] text-muted leading-snug">
                     <Shield size={14} className="shrink-0 mt-0.5 text-indigo" />
                     <span>{p}</span>

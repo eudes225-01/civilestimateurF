@@ -3,6 +3,7 @@
 import React from 'react'
 import { Crown, ShieldCheck, User } from 'lucide-react'
 import { Badge } from './ui/index.jsx'
+import { APP_GRATUITE } from '../config/mode.js'
 
 export default function StatutBadge({ statut, className = '' }) {
   if (statut === 'admin') return <Badge variant="ind" className={className}><ShieldCheck size={13} /> Admin</Badge>
@@ -13,6 +14,7 @@ export default function StatutBadge({ statut, className = '' }) {
 
 /** Petite étiquette « Premium » à poser à côté d'une fonction verrouillée. */
 export function EtiquettePremium({ className = '' }) {
+  if (APP_GRATUITE) return null
   return (
     <span className={`inline-flex items-center gap-1 text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-soleil-soft text-soleil-deep border border-soleil/30 ${className}`}>
       <Crown size={10} /> Premium

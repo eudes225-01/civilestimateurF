@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, backendActif } from './api.js'
 import { POLITIQUES_VERSION } from '../data/politiques.js'
+import { APP_GRATUITE } from '../config/mode.js'
 
 const MESSAGES = {
   auth_requise: 'Connectez-vous avec Google avant de vous abonner.',
@@ -31,7 +32,7 @@ function messageErreur(e) {
 
 export function useAbonnement(userId) {
   const [etat, setEtat] = useState(null)            // réponse de GET /api/access
-  const [chargement, setChargement] = useState(backendActif)
+  const [chargement, setChargement] = useState(backendActif && !APP_GRATUITE)
   const [erreur, setErreur] = useState('')
   const [paiementEnCours, setPaiementEnCours] = useState(false)
   const [verification, setVerification] = useState(false) // retour de FedaPay : confirmation en cours
@@ -39,7 +40,7 @@ export function useAbonnement(userId) {
   const [retour, setRetour] = useState(null)
 
   const rafraichir = useCallback(async () => {
-    if (!backendActif) { setChargement(false); return null }
+    if (!backendActif || APP_GRATUITE) { setChargement(false); return null }
     setChargement(true)
     try {
       const e = await api.access()
@@ -56,7 +57,7 @@ export function useAbonnement(userId) {
 
   // Retour de FedaPay (?paiement=retour&id=…) : le serveur relit le statut chez FedaPay, puis on relit l'accès.
   useEffect(() => {
-    if (!backendActif || !userId) return
+    if (!backendActif || APP_GRATUITE || !userId) return
     const q = new URLSearchParams(window.location.search)
     if (q.get('paiement') !== 'retour') return
     const id = q.get('id') || q.get('transaction_id') || undefined
@@ -85,8 +86,8 @@ export function useAbonnement(userId) {
   }, [])
 
   // Statut affiché : standard (gratuit) / premium (abonnement actif) / admin (tout, sans payer).
-  const statut = !backendActif ? 'local' : (etat?.statut || (etat?.abonne ? 'premium' : 'standard'))
+  const statut = APP_GRATUITE ? 'gratuit' : !backendActif ? 'local' : (etat?.statut || (etat?.abonne ? 'premium' : 'standard'))
   // Sans backend (développement local) : pas de verrou. Sinon : Premium ou admin exigé pour les fonctions payantes.
-  const acces = !backendActif || !!etat?.abonne
+  const acces = APP_GRATUITE || !backendActif || !!etat?.abonne
   return { acces, statut, etat, chargement, erreur, paiementEnCours, verification, retour, fermerRetour: () => setRetour(null), payer, rafraichir }
 }

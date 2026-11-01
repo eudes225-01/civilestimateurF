@@ -153,7 +153,7 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, tit
             <button role="menuitem" className={item} disabled={etat === 'saving'}
               onClick={() => { if (titre.trim()) { setMenu(false); onSave() } else demanderNom('enregistrer') }}><Save size={15} /> {projetId ? 'Enregistrer' : 'Enregistrer le projet'}</button>
             <button role="menuitem" className={item} onClick={ouvrir}><FolderOpen size={15} /> Mes projets <span className="ml-auto text-[11px] text-muted">ouvrir · supprimer</span></button>
-            {statut !== 'admin' && statut !== 'local' && (
+            {statut !== 'admin' && statut !== 'local' && statut !== 'gratuit' && (
               <button role="menuitem" className={`${item} text-soleil-deep`} onClick={() => { setMenu(false); onPremium() }}>
                 <Crown size={15} /> {statut === 'premium' ? 'Mon abonnement Premium' : 'Passer Premium'}
               </button>

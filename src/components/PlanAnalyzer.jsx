@@ -14,6 +14,7 @@ import PlanDeposits from './PlanDeposits.jsx'
 import PlanReview from './PlanReview.jsx'
 import PlanHelp from './PlanHelp.jsx'
 import VideoGuideIFC from './VideoGuideIFC.jsx'
+import GuideExportIFC from './GuideExportIFC.jsx'
 import { plansAbsents } from '../lib/planGate.js'
 import { CouvertureBandeau } from './ValidationExceptions.jsx'
 
@@ -24,6 +25,7 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(null)
   const [error, setError] = useState('')
+  const [errorGuide, setErrorGuide] = useState(null)
   const [ex, setEx] = useState(null)
   const [applied, setApplied] = useState(false)
 
@@ -31,14 +33,14 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
   const nbTypes = Object.values(depots).filter((l) => l.length).length
 
   const absents = plansAbsents(depots)
-  const changerDepots = (up) => { setEx(null); setApplied(false); setError(''); setDepots(up) }
+  const changerDepots = (up) => { setEx(null); setApplied(false); setError(''); setErrorGuide(null); setDepots(up) }
 
   const analyser = async () => {
     if (!nbFichiers) return
-    setBusy(true); setError(''); setEx(null); setApplied(false); setProgress({ fait: 0, total: nbFichiers, message: 'Préparation…' })
+    setBusy(true); setError(''); setErrorGuide(null); setEx(null); setApplied(false); setProgress({ fait: 0, total: nbFichiers, message: 'Préparation…' })
     const res = await analyzePlans(depots, { verifier: true, onProgress: setProgress })
     setBusy(false); setProgress(null)
-    if (!res.ok) { setError(res.message); return }
+    if (!res.ok) { setError(res.message); setErrorGuide(res.guide || null); return }
     const data = res.data
     // Plan de plomberie déposé mais rien d'exploitable lu : on ouvre quand même le bloc,
     // vide, pour que l'utilisateur renseigne les appareils et canalisations.
@@ -147,10 +149,12 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
               <AlertTriangle size={16} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
+            {errorGuide && <GuideExportIFC guide={errorGuide} ouvert />}
             <PlanHelp />
           </div>
         )}
 
+        {ex && !applied && ex.guideIFC && <div className="mt-4"><GuideExportIFC guide={ex.guideIFC} /></div>}
         {ex && !applied && <PlanReview ex={ex} setEx={setEx} onValider={valider} />}
 
         {applied && (
