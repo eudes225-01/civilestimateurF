@@ -36,8 +36,70 @@
     <script type="application/ld+json">
     {"@context":"https://schema.org","@type":"WebApplication","name":"CivilEstimateur","alternateName":"CivilEstimator","url":"https://civilestimator-archinova.store/","applicationCategory":"BusinessApplication","operatingSystem":"Web","inLanguage":"fr","description":"Outil de métré et de devis quantitatif estimatif (DQE) pour la construction au Bénin, en francs CFA.","publisher":{"@type":"Organization","name":"ArchiNova"}}
     </script>
+
+    <style>
+      /* Écran d'intro : animation du logo (affiché une fois par session, jamais pour les robots) */
+      #splash{display:none;position:fixed;inset:0;z-index:99999;background:#f6f5f2;align-items:center;justify-content:center;flex-direction:column;gap:18px;transition:opacity .55s ease,visibility .55s ease}
+      .splash-on #splash{display:flex;animation:splash-safety 0s linear 7s forwards}
+      #splash.splash-out{opacity:0;visibility:hidden}
+      @keyframes splash-safety{to{opacity:0;visibility:hidden}}
+      #splash svg{width:112px;height:112px;overflow:visible;filter:drop-shadow(0 12px 26px rgba(30,42,120,.35))}
+      #splash .s-tile{transform-box:fill-box;transform-origin:center;animation:s-pop .6s cubic-bezier(.2,.9,.3,1.25) both}
+      #splash .s-draw{stroke-dasharray:1;stroke-dashoffset:1;animation:s-draw .5s ease-out forwards}
+      #splash .s-roof{animation-delay:.45s}
+      #splash .s-walls{animation-delay:.85s}
+      #splash .s-cote{animation-delay:1.35s}
+      #splash .s-door{opacity:0;animation:s-fade .35s ease-out 1.25s forwards}
+      #splash .s-word{font:700 26px/1 "Space Grotesk",Inter,system-ui,sans-serif;letter-spacing:-.02em;color:#1e2a78;opacity:0;transform:translateY(8px);animation:s-up .5s ease-out 1.6s forwards}
+      #splash .s-word b{color:#e0532f;font-weight:700}
+      #splash .s-sub{font:500 12px/1 Inter,system-ui,sans-serif;color:#6b7090;opacity:0;margin-top:-8px;animation:s-fade .5s ease-out 1.9s forwards}
+      @keyframes s-pop{from{transform:scale(.55) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
+      @keyframes s-draw{to{stroke-dashoffset:0}}
+      @keyframes s-fade{to{opacity:1}}
+      @keyframes s-up{to{opacity:1;transform:none}}
+      @media (prefers-reduced-motion:reduce){
+        #splash .s-tile,#splash .s-draw,#splash .s-door,#splash .s-word,#splash .s-sub{animation-duration:.01s;animation-delay:0s}
+      }
+    </style>
+    <script>
+      (function () {
+        var bot = /bot|crawl|spider|lighthouse|google|headless/i.test(navigator.userAgent);
+        var vu = false;
+        try { vu = sessionStorage.getItem('splash-vu') === '1'; sessionStorage.setItem('splash-vu', '1'); } catch (e) {}
+        if (bot || vu) return;
+        var t0 = Date.now(), MIN = 2500;
+        document.documentElement.className += ' splash-on';
+        window.__hideSplash = function () {
+          var el = document.getElementById('splash'); if (!el) return;
+          setTimeout(function () {
+            el.className += ' splash-out';
+            setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 700);
+          }, Math.max(0, MIN - (Date.now() - t0)));
+        };
+      })();
+    </script>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <svg viewBox="0 0 44 44" role="img" aria-label="CivilEstimator">
+        <defs>
+          <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#1e2a78" /><stop offset="0.52" stop-color="#e0532f" /><stop offset="1" stop-color="#f6a823" />
+          </linearGradient>
+        </defs>
+        <rect class="s-tile" x="2" y="2" width="40" height="40" rx="11" fill="url(#sg)" />
+        <rect x="2" y="2" width="40" height="40" rx="11" fill="none" stroke="#fff" stroke-opacity="0.18" stroke-width="1.2" />
+        <path class="s-draw s-roof" pathLength="1" d="M11 21 L22 11.5 L33 21" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" />
+        <path class="s-draw s-walls" pathLength="1" d="M14 20 V31 H30 V20" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" />
+        <rect class="s-door" x="19.4" y="24.5" width="5.2" height="6.5" rx="0.8" fill="#fff" fill-opacity="0.95" />
+        <g stroke="#fff" stroke-opacity="0.92" stroke-width="1.7" stroke-linecap="round" fill="none">
+          <path class="s-draw s-cote" pathLength="1" d="M12 35.4 H32" />
+          <path class="s-draw s-cote" pathLength="1" d="M12 33.7 V37.1 M32 33.7 V37.1" />
+        </g>
+      </svg>
+      <div class="s-word">Civil<b>Estimator</b></div>
+      <div class="s-sub">Métré &amp; DQE · Bénin</div>
+    </div>
     <div id="root"></div>
     <noscript>
       <h1>CivilEstimator — Métré et devis estimatif (DQE) au Bénin</h1>

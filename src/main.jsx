@@ -11,3 +11,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </AuthProvider>
   </React.StrictMode>
 )
+
+// Écran d'intro (logo animé, défini dans index.html) : retiré une fois l'application montée.
+requestAnimationFrame(() => { if (window.__hideSplash) window.__hideSplash() })
