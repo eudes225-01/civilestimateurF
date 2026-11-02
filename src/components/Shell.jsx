@@ -55,7 +55,7 @@ export function Onboarding({ onStart }) {
       <section className="relative overflow-hidden gradient-hero animate-drift text-white">
         <HeroDecor />
 
-        <div className="relative max-w-[1180px] mx-auto px-[18px] py-12 sm:py-16 text-center">
+        <div className="relative max-w-[1180px] xl:max-w-none xl:px-10 2xl:px-14 mx-auto px-[18px] py-12 sm:py-16 text-center">
           <div className="flex justify-center mb-4 animate-fade-up">
             <LogoMark size={62} glow />
           </div>
@@ -77,7 +77,7 @@ export function Onboarding({ onStart }) {
       </section>
 
       {/* ── ATOUTS ── */}
-      <div className="max-w-[1180px] mx-auto px-[18px] -mt-4">
+      <div className="max-w-[1180px] xl:max-w-none xl:px-10 2xl:px-14 mx-auto px-[18px] -mt-4">
         <div className="grid sm:grid-cols-3 gap-3.5">
           {ATOUTS.map(({ Ic, t, c, col }, i) => (
             <div
@@ -98,36 +98,38 @@ export function Onboarding({ onStart }) {
       </div>
 
       {/* ── ENTRÉE UNIQUE ── */}
-      <div className="max-w-[1180px] mx-auto px-[18px] py-10">
+      <div className="max-w-[1180px] xl:max-w-none xl:px-10 2xl:px-14 mx-auto px-[18px] py-10">
         <div className="text-center mb-6 animate-fade-up">
           <h2 className="text-[22px] sm:text-[26px] font-display font-bold">Prêt à estimer votre projet ?</h2>
           <p className="text-muted text-[14px] mt-1.5">Une seule expérience, complète : plans par type, métré, prix modifiables, sous-détails, multi-niveaux et export DQE.</p>
         </div>
 
-        <div className="max-w-[560px] mx-auto">
+        <div className="w-full">
           <button
             onClick={demarrer}
-            className={`group relative w-full text-left border-2 rounded-xl3 p-[24px] shadow-card transition-all duration-300 overflow-hidden animate-fade-up [animation-delay:80ms]
+            className={`group relative w-full text-left border-2 rounded-xl3 p-[24px] shadow-card transition-all duration-300 overflow-hidden animate-fade-up [animation-delay:80ms] lg:flex lg:items-center lg:gap-8 lg:p-8
               ${accepted ? 'bg-card border-indigo/15 hover:-translate-y-1.5 hover:border-indigo hover:shadow-glow' : 'bg-card border-line opacity-60'}`}
           >
             <span className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo to-lagune" />
-            <div className="w-[46px] h-[46px] rounded-[13px] grid place-items-center mb-3.5 bg-indigo text-white shadow-glow">
+            <div className="w-[46px] h-[46px] rounded-[13px] grid place-items-center mb-3.5 bg-indigo text-white shadow-glow lg:mb-0 lg:w-[64px] lg:h-[64px] lg:shrink-0">
               <Calculator size={24} />
             </div>
+            <div className="lg:flex-1">
             <Badge variant="ind" className="mb-2">{APP_GRATUITE ? 'DQE, plans & PDF gratuits' : 'DQE gratuit · plans & PDF en Premium'}</Badge>
             <h3 className="text-[18px] font-display font-bold">Commencer l'estimation</h3>
-            <p className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
+            <p className="text-muted text-[13.5px] lg:text-[14.5px] mt-1.5 leading-relaxed">
               Déposez vos plans{APP_GRATUITE ? '' : ' avec Premium'} (fondation, étages, coupe, plomberie, électricité, poutraison, toiture, coffrage) ou saisissez vos dimensions gratuitement :
               chaque type de plan est lu et calculé avec le module qui lui correspond. Vous <b className="text-ink">modifiez chaque prix unitaire</b> ; {APP_GRATUITE ? "le DQE et l'export PDF sont gratuits." : "le DQE est gratuit, l'export PDF est Premium."}
             </p>
-            <span className="mt-4 font-semibold text-[13.5px] text-indigo inline-flex gap-1.5 items-center group-hover:gap-2.5 transition-all">
+            </div>
+            <span className="mt-4 lg:mt-0 lg:shrink-0 lg:rounded-xl lg:bg-indigo lg:text-white lg:px-6 lg:py-3 lg:text-[15px] font-semibold text-[13.5px] text-indigo inline-flex gap-1.5 items-center group-hover:gap-2.5 transition-all">
               Ouvrir l'atelier <ArrowRight size={15} />
             </span>
           </button>
         </div>
 
         {/* ── ACCEPTATION DES POLITIQUES (juste en dessous) ── */}
-        <div id="accept-box" className="max-w-[880px] mx-auto mt-5 animate-fade-up [animation-delay:240ms]">
+        <div id="accept-box" className="w-full mt-5 animate-fade-up [animation-delay:240ms]">
           <div className={`rounded-xl2 border-2 transition-colors ${accepted ? 'border-jade/40 bg-jade-soft' : openPol ? 'border-laterite/50 bg-laterite-soft' : 'border-dashed border-line-strong bg-card'}`}>
             <label className="flex items-start gap-3 p-4 cursor-pointer">
               <span
@@ -186,7 +188,7 @@ export function Footer({ prix }) {
   const date = prix?.date || PRIX_DATE
   return (
     <footer className="mt-auto border-t border-line bg-card/60">
-      <div className="max-w-[1180px] mx-auto px-[18px] py-6 flex flex-wrap gap-3.5 justify-between items-center text-[12.5px] text-muted">
+      <div className="max-w-[1180px] xl:max-w-none xl:px-10 2xl:px-14 mx-auto px-[18px] py-6 flex flex-wrap gap-3.5 justify-between items-center text-[12.5px] text-muted">
         <span className="flex items-center gap-2">
           <LogoMark size={18} />
           CivilEstimator · Métré &amp; DQE — Bénin · données {version} ({fmtMois(date)})

@@ -202,7 +202,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 bg-paper/80 backdrop-blur-md border-b border-line">
-        <div className="max-w-[1180px] mx-auto px-[18px] flex items-center gap-3 h-[64px]">
+        <div className="max-w-[1180px] xl:max-w-none xl:px-10 2xl:px-14 mx-auto px-[18px] flex items-center gap-3 h-[64px]">
           <button className="flex items-center gap-2.5 group" onClick={() => setStarted(false)} title="Revenir à l'accueil">
             <span className="group-hover:scale-105 transition-transform">
               <LogoMark size={38} glow />
@@ -228,7 +228,7 @@ export default function App() {
       </header>
 
       {/* ── Tabs ── */}
-      <main className="max-w-[1180px] w-full mx-auto px-[18px] pt-5 flex-1">
+      <main className="max-w-[1180px] xl:max-w-none xl:px-10 2xl:px-14 w-full mx-auto px-[18px] pt-5 flex-1">
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar p-1.5 bg-card/70 backdrop-blur rounded-xl2 border border-line shadow-soft">
           {TABS.map((t, i) => {
             const on = tab === t.k
