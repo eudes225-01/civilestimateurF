@@ -6,7 +6,7 @@
 // arrondie en bas qui porte la connexion. Ordinateur (≥ md) : les trois blocs transparents pleine largeur.
 // Palette des textes : blanc, or (#FFD166), menthe (#7CF2C8), ciel (#9BD8FF) ; le nom de la marque
 // garde ses couleurs d'origine (« Civil » encre, « Estimator » latérite) sur une pastille blanche.
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { ShieldCheck, Calculator, Ruler, FileText } from 'lucide-react'
 import { LogoMark } from './Logo.jsx'
 import HeroDecor from './HeroDecor.jsx'
@@ -15,7 +15,7 @@ import { useAuth } from '../lib/auth.jsx'
 // Même lien « ArchiNova » que le pied de page de l'application (VITE_PORTFOLIO_URL).
 const PORTFOLIO_URL = import.meta.env.VITE_PORTFOLIO_URL || ''
 
-const OR = '#FFD166'
+const OR = '#f6a823' // soleil (palette de l'application)
 
 const Google = () => (
   <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
@@ -27,15 +27,44 @@ const Google = () => (
 )
 
 const FONCTIONS = [
-  { Icone: Ruler, couleur: '#FFD166', t: 'Métré automatique', d: 'Quantités de gros œuvre calculées à partir de vos dimensions ou de vos plans, selon le Guide du métré (Bénin).' },
-  { Icone: Calculator, couleur: '#7CF2C8', t: 'DQE en francs CFA', d: 'Devis quantitatif estimatif avec sous-détail des prix unitaires, sur la base du barème RPR que vous ajustez ligne par ligne.' },
-  { Icone: FileText, couleur: '#9BD8FF', t: 'Projets enregistrés', d: 'Vos projets sont rattachés à votre compte et retrouvables à chaque visite, avec export PDF professionnel du devis.' },
+  { Icone: Ruler, couleur: '#f6a823', ico: '#141d52', t: 'Métré automatique', d: 'Quantités de gros œuvre calculées à partir de vos dimensions ou de vos plans, selon le Guide du métré (Bénin).' },
+  { Icone: Calculator, couleur: '#0fa36b', ico: '#ffffff', t: 'DQE en francs CFA', d: 'Devis quantitatif estimatif avec sous-détail des prix unitaires, sur la base du barème RPR que vous ajustez ligne par ligne.' },
+  { Icone: FileText, couleur: '#1e2a78', ico: '#ffffff', t: 'Projets enregistrés', d: 'Vos projets sont rattachés à votre compte et retrouvables à chaque visite, avec export PDF professionnel du devis.' },
 ]
 
 // Lisibilité du texte sur le fond en mouvement (sans aucun cadre derrière).
 const OMBRE = { textShadow: '0 1px 14px rgba(20,29,82,0.5), 0 0 2px rgba(20,29,82,0.3)' }
 const SANS_OMBRE = { textShadow: 'none' }
 const delai = (s) => ({ animationDelay: `${s}s` })
+
+/* ─── Aperçu de devis (bureau) ─────────────────────────────────────────────── */
+function ApercuDQE() {
+  const lignes = [
+    ['Terrassement · fouilles', '18,4 m³', '#f6a823', '78%'],
+    ['Béton armé · semelles', '4,2 m³', '#0fa36b', '46%'],
+    ['Maçonnerie · agglos 15 cm', '126 m²', '#1e2a78', '92%'],
+    ['Enduit · façades', '214 m²', '#ffffff', '64%'],
+  ]
+  return (
+    <div className="hidden lg:block rounded-3xl border border-white/30 bg-white/10 backdrop-blur-md p-7 shadow-2xl animate-fade-up" style={delai(0.2)}>
+      <div className="flex items-center justify-between">
+        <h2 className="font-display font-bold text-[18px]">Devis quantitatif estimatif</h2>
+        <span className="rounded-full border border-white/50 px-2.5 py-0.5 text-[11px] font-semibold" style={{ color: OR }}>Exemple</span>
+      </div>
+      <ul className="mt-5 space-y-4">
+        {lignes.map(([t, q, c, w]) => (
+          <li key={t}>
+            <div className="flex items-baseline justify-between text-[13.5px]"><span>{t}</span><b>{q}</b></div>
+            <div className="mt-1.5 h-2 rounded-full bg-white/20"><div className="h-2 rounded-full" style={{ width: w, background: c }} /></div>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-6 flex flex-wrap gap-2 border-t border-white/25 pt-4 text-[12px] font-semibold">
+        {['FCFA', 'TVA 18 %', 'UEMOA', 'Export PDF'].map((x) => <span key={x} className="rounded-full border border-white/40 px-3 py-1">{x}</span>)}
+      </div>
+    </div>
+  )
+}
 
 /* ─── Mobile : écran d'application ─────────────────────────────────────────── */
 function AccueilMobile({ connecterGoogle, erreur }) {
@@ -47,17 +76,29 @@ function AccueilMobile({ connecterGoogle, erreur }) {
     const pas = el.firstElementChild.offsetWidth + 12
     setActif(Math.min(FONCTIONS.length - 1, Math.max(0, Math.round(el.scrollLeft / pas))))
   }
+  const pause = useRef(0)
+  useEffect(() => {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+    const id = setInterval(() => {
+      const el = piste.current
+      if (!el || !el.firstElementChild || Date.now() < pause.current) return
+      const pas = el.firstElementChild.offsetWidth + 12
+      const i = Math.round(el.scrollLeft / pas)
+      el.scrollTo({ left: ((i + 1) % FONCTIONS.length) * pas, behavior: 'smooth' })
+    }, 3500)
+    return () => clearInterval(id)
+  }, [])
   return (
     <div className="md:hidden relative z-10 flex flex-col min-h-[100dvh]">
       <div className="flex-1 flex flex-col px-5 pt-[max(1.75rem,env(safe-area-inset-top))] pb-5">
         {/* Marque */}
-        <div className="mx-auto inline-flex items-center gap-2.5 rounded-full bg-white pl-1.5 pr-4 py-1.5 shadow-glow animate-fade-up" style={SANS_OMBRE}>
-          <LogoMark size={40} />
+        <div className="mx-auto inline-flex items-center gap-3 animate-fade-up">
+          <LogoMark size={50} glow />
           <div className="leading-none">
-            <h1 className="font-display font-bold text-[19px] tracking-tight text-ink">
-              Civil<span className="text-laterite">Estimator</span>
+            <h1 className="font-display font-bold text-[23px] tracking-tight text-white">
+              Civil<span style={{ color: OR }}>Estimator</span>
             </h1>
-            <p className="mt-1 text-[10px] font-medium text-muted">Métré &amp; DQE · Bénin</p>
+            <p className="mt-1.5 text-[11px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
           </div>
         </div>
 
@@ -74,15 +115,16 @@ function AccueilMobile({ connecterGoogle, erreur }) {
           <div
             ref={piste}
             onScroll={surDefilement}
+            onTouchStart={() => { pause.current = Date.now() + 8000 }}
             className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-5 scroll-px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {FONCTIONS.map(({ Icone, couleur, t, d }) => (
+            {FONCTIONS.map(({ Icone, couleur, ico, t, d }) => (
               <article key={t} className="snap-start shrink-0 w-[78%] max-w-[300px] rounded-3xl border border-white/30 bg-white/15 backdrop-blur-md p-4 shadow-lg">
                 <div className="flex items-center gap-3">
-                  <span className="grid place-items-center w-10 h-10 shrink-0 rounded-full" style={{ background: couleur, color: '#141d52', ...SANS_OMBRE }}>
+                  <span className="grid place-items-center w-10 h-10 shrink-0 rounded-full ring-2 ring-white/80" style={{ background: couleur, color: ico, ...SANS_OMBRE }}>
                     <Icone size={20} aria-hidden="true" />
                   </span>
-                  <h2 className="font-display font-bold text-[16.5px] leading-tight" style={{ color: couleur }}>{t}</h2>
+                  <h2 className="font-display font-bold text-[16.5px] leading-tight" style={{ color: OR }}>{t}</h2>
                 </div>
                 <p className="mt-2.5 text-[13px] leading-snug text-white">{d}</p>
               </article>
@@ -155,18 +197,20 @@ export default function AuthGate() {
       <main className="relative z-10 flex-1 flex flex-col w-full px-6 sm:px-10 lg:px-16">
         {/* ── 1. Présentation ─────────────────────────────────────────────── */}
         <section className="w-full pt-9 sm:pt-12 pb-10 sm:pb-12 animate-fade-up">
+          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 lg:gap-16 items-center">
+          <div>
           {/* Marque : couleurs d'origine du nom, sur pastille blanche pour rester lisible */}
-          <div className="inline-flex items-center gap-3.5 rounded-2xl bg-white pl-3 pr-5 py-2.5 shadow-glow" style={SANS_OMBRE}>
-            <LogoMark size={52} glow />
+          <div className="inline-flex items-center gap-4">
+            <LogoMark size={60} glow />
             <div className="leading-tight">
-              <h1 className="font-display font-bold text-[24px] sm:text-[30px] tracking-tight text-ink">
-                Civil<span className="text-laterite">Estimator</span>
+              <h1 className="font-display font-bold text-[24px] sm:text-[34px] tracking-tight text-white">
+                Civil<span style={{ color: OR }}>Estimator</span>
               </h1>
-              <p className="text-[11.5px] sm:text-[12.5px] font-medium text-muted">Métré &amp; DQE · Bénin</p>
+              <p className="text-[11.5px] sm:text-[13px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
             </div>
           </div>
 
-          <p className="mt-7 max-w-[820px] font-display font-bold text-[24px] sm:text-[34px] leading-tight tracking-tight">
+          <p className="mt-7 max-w-[820px] font-display font-bold text-[24px] sm:text-[34px] lg:text-[48px] leading-[1.08] tracking-tight">
             Du relevé sur plan <span style={{ color: OR }}>au devis estimatif</span>, en francs CFA.
           </p>
           <p className="mt-3.5 max-w-[760px] text-[14.5px] sm:text-[16px] text-white leading-relaxed">
@@ -174,13 +218,16 @@ export default function AuthGate() {
             de construction. Il s'adresse aux <b>professionnels du bâtiment</b> et aux <b>particuliers</b> qui préparent un chantier.
           </p>
 
-          <ul className="mt-9 grid gap-7 md:grid-cols-3 md:gap-0">
-            {FONCTIONS.map(({ Icone, couleur, t, d }, i) => (
+          </div>
+          <ApercuDQE />
+          </div>
+          <ul className="mt-12 grid gap-7 md:grid-cols-3 md:gap-0">
+            {FONCTIONS.map(({ Icone, couleur, ico, t, d }, i) => (
               <li key={t} className={`animate-fade-up md:px-8 first:md:pl-0 last:md:pr-0 ${i > 0 ? 'md:border-l md:border-white/30' : ''}`} style={delai(0.15 + i * 0.12)}>
-                <span className="inline-grid place-items-center w-12 h-12 rounded-full shadow-lg" style={{ background: couleur, color: '#141d52', ...SANS_OMBRE }}>
+                <span className="inline-grid place-items-center w-12 h-12 rounded-full shadow-lg ring-2 ring-white/80" style={{ background: couleur, color: ico, ...SANS_OMBRE }}>
                   <Icone size={22} aria-hidden="true" />
                 </span>
-                <h2 className="mt-3.5 font-display font-bold text-[18px] sm:text-[19px]" style={{ color: couleur }}>{t}</h2>
+                <h2 className="mt-3.5 font-display font-bold text-[18px] sm:text-[19px]" style={{ color: OR }}>{t}</h2>
                 <p className="mt-1.5 text-[13.5px] sm:text-[14px] text-white leading-relaxed">{d}</p>
               </li>
             ))}
@@ -205,9 +252,9 @@ export default function AuthGate() {
           </button>
           {erreur && <p role="alert" className="mt-3 text-[13px] font-bold" style={{ color: OR }}>{erreur}</p>}
           <p className="mt-5 max-w-[580px] text-[12.5px] sm:text-[13px] text-white leading-relaxed">
-            <ShieldCheck size={15} className="inline -mt-0.5 mr-1.5" style={{ color: '#7CF2C8' }} aria-hidden="true" />
+            <ShieldCheck size={15} className="inline -mt-0.5 mr-1.5" style={{ color: '#ffffff' }} aria-hidden="true" />
             <span>
-              Seuls votre <b style={{ color: '#7CF2C8' }}>nom</b>, votre <b style={{ color: '#7CF2C8' }}>e-mail</b> et votre <b style={{ color: '#7CF2C8' }}>photo de profil</b> Google sont utilisés.
+              Seuls votre <b style={{ color: '#ffffff' }}>nom</b>, votre <b style={{ color: '#ffffff' }}>e-mail</b> et votre <b style={{ color: '#ffffff' }}>photo de profil</b> Google sont utilisés.
               Aucun mot de passe n'est géré par l'application. Détails dans notre{' '}
               <a className="underline underline-offset-2 font-bold hover:opacity-80" style={{ color: OR }} href="/confidentialite.html">politique de confidentialité</a>.
             </span>
