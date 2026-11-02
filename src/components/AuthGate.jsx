@@ -35,8 +35,6 @@ const FONCTIONS = [
 // Lisibilité du texte sur le fond en mouvement (sans aucun cadre derrière).
 const OMBRE = { textShadow: '0 1px 14px rgba(20,29,82,0.5), 0 0 2px rgba(20,29,82,0.3)' }
 const SANS_OMBRE = { textShadow: 'none' }
-// Nom de la marque sans fond : halo blanc léger pour que le noir et l'orange restent lisibles sur le dégradé.
-const HALO = { textShadow: '0 0 2px rgba(255,255,255,0.9), 0 0 12px rgba(255,255,255,0.6)' }
 const delai = (s) => ({ animationDelay: `${s}s` })
 
 /* ─── Aperçu de devis (bureau) ─────────────────────────────────────────────── */
@@ -108,7 +106,7 @@ function AccueilMobile({ connecterGoogle, erreur }) {
         <div className="mx-auto inline-flex items-center gap-3 animate-fade-up">
           <LogoMark size={50} glow />
           <div className="leading-none">
-            <h1 className="font-display font-bold text-[23px] tracking-tight" style={HALO}>
+            <h1 className="font-display font-bold text-[23px] tracking-tight" style={SANS_OMBRE}>
               <span style={{ color: '#0b0b0f' }}>Civil</span><span style={{ color: '#FF7A00' }}>Estimator</span>
             </h1>
             <p className="mt-1.5 text-[11px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
@@ -217,7 +215,7 @@ export default function AuthGate() {
           <div className="inline-flex items-center gap-4">
             <LogoMark size={60} glow />
             <div className="leading-tight">
-              <h1 className="font-display font-bold text-[24px] sm:text-[34px] tracking-tight" style={HALO}>
+              <h1 className="font-display font-bold text-[24px] sm:text-[34px] tracking-tight" style={SANS_OMBRE}>
                 <span style={{ color: '#0b0b0f' }}>Civil</span><span style={{ color: '#FF7A00' }}>Estimator</span>
               </h1>
               <p className="text-[11.5px] sm:text-[13px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
