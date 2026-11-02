@@ -23,12 +23,25 @@ const DENSE = [
   'bottom-[5%] left-[46%] w-16 h-16 rounded-lg bg-soleil/20 rotate-45 animate-float-slow',
 ]
 
-export default function HeroDecor({ dense = false }) {
+// Téléphone (compactMobile) : 5 formes seulement, bien espacées, dans la moitié haute de l'écran
+// (les pourcentages du bureau se chevauchent sur un écran étroit).
+const MOBILE = [
+  'top-[3%] right-[7%] w-14 h-14 rounded-xl border-2 border-white/25 animate-float',
+  'top-[19%] left-[3%] w-9 h-9 rounded-lg bg-soleil/25 animate-float-slow',
+  'top-[33%] right-[4%] w-10 h-10 rounded-full border-2 border-white/25 animate-float-slow',
+  'top-[47%] left-[9%] w-12 h-12 rounded-2xl border-2 border-soleil/40 animate-float',
+  'top-[27%] left-[46%] w-7 h-7 rounded-md bg-white/15 animate-float-slow',
+]
+
+export default function HeroDecor({ dense = false, compactMobile = false }) {
   return (
     <>
       <div className="absolute inset-0 blueprint-grid opacity-40 animate-grid-pan pointer-events-none" />
       {[...BASE, ...(dense ? DENSE : [])].map((c) => (
-        <div key={c} className={`absolute ${c} pointer-events-none`} aria-hidden="true" />
+        <div key={c} className={`absolute ${c} pointer-events-none ${compactMobile ? 'hidden md:block' : ''}`} aria-hidden="true" />
+      ))}
+      {compactMobile && MOBILE.map((c) => (
+        <div key={c} className={`absolute ${c} pointer-events-none md:hidden`} aria-hidden="true" />
       ))}
     </>
   )

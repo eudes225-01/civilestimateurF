@@ -188,7 +188,7 @@ export default function AuthGate() {
   const { connecterGoogle, erreur } = useAuth()
   return (
     <div className="relative min-h-[100dvh] overflow-hidden gradient-hero animate-drift flex flex-col text-white" style={OMBRE}>
-      <HeroDecor dense />
+      <HeroDecor dense compactMobile />
 
       <AccueilMobile connecterGoogle={connecterGoogle} erreur={erreur} />
 
