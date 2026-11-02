@@ -103,13 +103,13 @@ function AccueilMobile({ connecterGoogle, erreur }) {
     <div className="md:hidden relative z-10 flex flex-col min-h-[100dvh]">
       <div className="flex-1 flex flex-col px-5 pt-[max(1.75rem,env(safe-area-inset-top))] pb-5">
         {/* Marque */}
-        <div className="mx-auto inline-flex items-center gap-3 animate-fade-up">
-          <LogoMark size={50} glow />
+        <div className="mx-auto inline-flex items-center gap-2.5 rounded-full bg-white pl-1.5 pr-4 py-1.5 shadow-glow animate-fade-up" style={SANS_OMBRE}>
+          <LogoMark size={40} />
           <div className="leading-none">
-            <h1 className="font-display font-bold text-[23px] tracking-tight" style={SANS_OMBRE}>
+            <h1 className="font-display font-bold text-[19px] tracking-tight" style={SANS_OMBRE}>
               <span style={{ color: '#0b0b0f' }}>Civil</span><span style={{ color: '#FF7A00' }}>Estimator</span>
             </h1>
-            <p className="mt-1.5 text-[11px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
+            <p className="mt-1 text-[10px] font-medium text-muted">Métré &amp; DQE · Bénin</p>
           </div>
         </div>
 
@@ -212,13 +212,13 @@ export default function AuthGate() {
           <div className={`grid gap-10 lg:gap-16 items-center ${apercu ? 'lg:grid-cols-[1.15fr_0.85fr]' : ''}`}>
           <div>
           {/* Marque : couleurs d'origine du nom, sur pastille blanche pour rester lisible */}
-          <div className="inline-flex items-center gap-4">
-            <LogoMark size={60} glow />
+          <div className="inline-flex items-center gap-3.5 rounded-2xl bg-white pl-3 pr-5 py-2.5 shadow-glow" style={SANS_OMBRE}>
+            <LogoMark size={52} glow />
             <div className="leading-tight">
-              <h1 className="font-display font-bold text-[24px] sm:text-[34px] tracking-tight" style={SANS_OMBRE}>
+              <h1 className="font-display font-bold text-[24px] sm:text-[30px] tracking-tight" style={SANS_OMBRE}>
                 <span style={{ color: '#0b0b0f' }}>Civil</span><span style={{ color: '#FF7A00' }}>Estimator</span>
               </h1>
-              <p className="text-[11.5px] sm:text-[13px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
+              <p className="text-[11.5px] sm:text-[12.5px] font-medium text-muted">Métré &amp; DQE · Bénin</p>
             </div>
           </div>
 
