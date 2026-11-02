@@ -2,9 +2,11 @@
 // Page d'accueil publique (visible sans connexion, exigence Google pour la validation de la marque).
 // Trois blocs sans fond, sur toute la largeur, posés directement sur le fond animé :
 // 1) présentation de CivilEstimator, 2) connexion Google, 3) liens légaux et contact.
+// Mobile (< md) : écran d'application — marque en haut, fonctions en cartes à faire défiler, et feuille blanche
+// arrondie en bas qui porte la connexion. Ordinateur (≥ md) : les trois blocs transparents pleine largeur.
 // Palette des textes : blanc, or (#FFD166), menthe (#7CF2C8), ciel (#9BD8FF) ; le nom de la marque
 // garde ses couleurs d'origine (« Civil » encre, « Estimator » latérite) sur une pastille blanche.
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import { ShieldCheck, Calculator, Ruler, FileText } from 'lucide-react'
 import { LogoMark } from './Logo.jsx'
 import HeroDecor from './HeroDecor.jsx'
@@ -35,12 +37,121 @@ const OMBRE = { textShadow: '0 1px 14px rgba(20,29,82,0.5), 0 0 2px rgba(20,29,8
 const SANS_OMBRE = { textShadow: 'none' }
 const delai = (s) => ({ animationDelay: `${s}s` })
 
+/* ─── Mobile : écran d'application ─────────────────────────────────────────── */
+function AccueilMobile({ connecterGoogle, erreur }) {
+  const piste = useRef(null)
+  const [actif, setActif] = useState(0)
+  const surDefilement = () => {
+    const el = piste.current
+    if (!el || !el.firstElementChild) return
+    const pas = el.firstElementChild.offsetWidth + 12
+    setActif(Math.min(FONCTIONS.length - 1, Math.max(0, Math.round(el.scrollLeft / pas))))
+  }
+  return (
+    <div className="md:hidden relative z-10 flex flex-col min-h-[100dvh]">
+      <div className="flex-1 flex flex-col px-5 pt-[max(1.75rem,env(safe-area-inset-top))] pb-5">
+        {/* Marque */}
+        <div className="mx-auto inline-flex items-center gap-2.5 rounded-full bg-white pl-1.5 pr-4 py-1.5 shadow-glow animate-fade-up" style={SANS_OMBRE}>
+          <LogoMark size={40} />
+          <div className="leading-none">
+            <h1 className="font-display font-bold text-[19px] tracking-tight text-ink">
+              Civil<span className="text-laterite">Estimator</span>
+            </h1>
+            <p className="mt-1 text-[10px] font-medium text-muted">Métré &amp; DQE · Bénin</p>
+          </div>
+        </div>
+
+        {/* Accroche */}
+        <p className="mt-6 text-center font-display font-bold text-[26px] leading-[1.12] tracking-tight animate-fade-up" style={delai(0.1)}>
+          Du relevé sur plan <span style={{ color: OR }}>au devis estimatif</span>, en francs CFA.
+        </p>
+        <p className="mt-3 mx-auto max-w-[330px] text-center text-[14px] leading-snug text-white animate-fade-up" style={delai(0.18)}>
+          Quantités, DQE et sous-détail des prix de vos chantiers, pour les <b>professionnels</b> et les <b>particuliers</b>.
+        </p>
+
+        {/* Fonctions : cartes à faire défiler */}
+        <div className="mt-5 -mx-5 animate-fade-up" style={delai(0.26)}>
+          <div
+            ref={piste}
+            onScroll={surDefilement}
+            className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-5 scroll-px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {FONCTIONS.map(({ Icone, couleur, t, d }) => (
+              <article key={t} className="snap-start shrink-0 w-[78%] max-w-[300px] rounded-3xl border border-white/30 bg-white/15 backdrop-blur-md p-4 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <span className="grid place-items-center w-10 h-10 shrink-0 rounded-full" style={{ background: couleur, color: '#141d52', ...SANS_OMBRE }}>
+                    <Icone size={20} aria-hidden="true" />
+                  </span>
+                  <h2 className="font-display font-bold text-[16.5px] leading-tight" style={{ color: couleur }}>{t}</h2>
+                </div>
+                <p className="mt-2.5 text-[13px] leading-snug text-white">{d}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-3 flex justify-center gap-1.5" aria-hidden="true">
+            {FONCTIONS.map(({ t }, i) => (
+              <span key={t} className={`h-1.5 rounded-full transition-all duration-300 ${i === actif ? 'w-5 bg-white' : 'w-1.5 bg-white/45'}`} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Feuille de connexion */}
+      <section
+        className="relative rounded-t-[32px] bg-white text-ink px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(20,29,82,0.35)] animate-fade-up"
+        style={{ ...SANS_OMBRE, animationDelay: '0.34s' }}
+      >
+        <div className="mx-auto h-1.5 w-11 rounded-full bg-line" aria-hidden="true" />
+        <h2 className="mt-3.5 text-center font-display font-bold text-[19px] text-ink">
+          Connectez-vous pour <span className="text-laterite">continuer</span>
+        </h2>
+        <p className="mt-1.5 text-center text-[13px] leading-snug text-muted">
+          Votre compte Google crée votre espace : vos projets y sont enregistrés et retrouvables à chaque visite.
+        </p>
+        <button
+          type="button"
+          onClick={connecterGoogle}
+          className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-line bg-white py-3.5 text-[15.5px] font-bold text-indigo shadow-[0_6px_18px_rgba(20,29,82,0.18)] transition active:scale-[0.98]"
+        >
+          <Google /> Continuer avec Google
+        </button>
+        {erreur && <p role="alert" className="mt-2 text-center text-[12.5px] font-bold text-laterite-deep">{erreur}</p>}
+        <p className="mt-3 flex items-start gap-2 text-[11px] leading-snug text-muted">
+          <ShieldCheck size={15} className="mt-px shrink-0 text-jade" aria-hidden="true" />
+          <span>
+            Seuls votre nom, votre e-mail et votre photo de profil Google sont utilisés. Aucun mot de passe n'est géré par l'application.
+            Détails dans notre <a className="font-semibold text-indigo underline underline-offset-2" href="/confidentialite.html">politique de confidentialité</a>.
+          </span>
+        </p>
+        <nav className="mt-3 flex items-center justify-center gap-x-5 border-t border-line pt-2.5 text-[12px] font-semibold text-indigo" aria-label="Informations légales">
+          <a href="/confidentialite.html">Confidentialité</a>
+          <a href="/conditions.html">Conditions</a>
+          <a href="mailto:archinova87@gmail.com">Contact</a>
+        </nav>
+        <p className="mt-2 text-center text-[11px] text-muted">
+          © {new Date().getFullYear()}{' '}
+          {PORTFOLIO_URL ? (
+            <a href={PORTFOLIO_URL} target="_blank" rel="noopener noreferrer" className="font-bold text-laterite">ArchiNova</a>
+          ) : (
+            <span className="font-bold text-laterite">ArchiNova</span>
+          )}{' '}
+          — Tous droits réservés
+        </p>
+      </section>
+    </div>
+  )
+}
+
 export default function AuthGate() {
   const { connecterGoogle, erreur } = useAuth()
   return (
-    <div className="relative min-h-screen overflow-hidden gradient-hero animate-drift flex flex-col text-white" style={OMBRE}>
+    <div className="relative min-h-[100dvh] overflow-hidden gradient-hero animate-drift flex flex-col text-white" style={OMBRE}>
       <HeroDecor dense />
 
+      <AccueilMobile connecterGoogle={connecterGoogle} erreur={erreur} />
+
+      {/* Ordinateur : trois blocs transparents pleine largeur */}
+      <div className="hidden md:flex md:flex-col md:flex-1 relative z-10">
       <main className="relative z-10 flex-1 flex flex-col w-full px-6 sm:px-10 lg:px-16">
         {/* ── 1. Présentation ─────────────────────────────────────────────── */}
         <section className="w-full pt-9 sm:pt-12 pb-10 sm:pb-12 animate-fade-up">
@@ -123,6 +234,7 @@ export default function AuthGate() {
           </span>
         </div>
       </footer>
+      </div>
     </div>
   )
 }
