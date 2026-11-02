@@ -7,7 +7,7 @@
 // Palette des textes : blanc, or (#FFD166), menthe (#7CF2C8), ciel (#9BD8FF) ; le nom de la marque
 // garde ses couleurs d'origine (« Civil » encre, « Estimator » latérite) sur une pastille blanche.
 import React, { useEffect, useRef, useState } from 'react'
-import { ShieldCheck, Calculator, Ruler, FileText } from 'lucide-react'
+import { ShieldCheck, Calculator, Ruler, FileText, X } from 'lucide-react'
 import { LogoMark } from './Logo.jsx'
 import HeroDecor from './HeroDecor.jsx'
 import { useAuth } from '../lib/auth.jsx'
@@ -35,10 +35,16 @@ const FONCTIONS = [
 // Lisibilité du texte sur le fond en mouvement (sans aucun cadre derrière).
 const OMBRE = { textShadow: '0 1px 14px rgba(20,29,82,0.5), 0 0 2px rgba(20,29,82,0.3)' }
 const SANS_OMBRE = { textShadow: 'none' }
+// Nom de la marque sans fond : halo blanc léger pour que le noir et l'orange restent lisibles sur le dégradé.
+const HALO = { textShadow: '0 0 2px rgba(255,255,255,0.9), 0 0 12px rgba(255,255,255,0.6)' }
 const delai = (s) => ({ animationDelay: `${s}s` })
 
 /* ─── Aperçu de devis (bureau) ─────────────────────────────────────────────── */
-function ApercuDQE() {
+function ApercuDQE({ onFerme }) {
+  const [sortie, setSortie] = useState(false)
+  // 1re visite : l'écran d'intro est encore affiché, on attend qu'il s'efface avant de faire monter la fenêtre.
+  const [attente] = useState(() => (typeof document !== 'undefined' && document.getElementById('splash') ? 2.9 : 0.4))
+  const fermer = () => { setSortie(true); setTimeout(onFerme, 350) }
   const lignes = [
     ['Terrassement · fouilles', '18,4 m³', '#f6a823', '78%'],
     ['Béton armé · semelles', '4,2 m³', '#0fa36b', '46%'],
@@ -46,7 +52,14 @@ function ApercuDQE() {
     ['Enduit · façades', '214 m²', '#ffffff', '64%'],
   ]
   return (
-    <div className="hidden lg:block rounded-3xl border border-white/30 bg-white/10 backdrop-blur-md p-7 shadow-2xl animate-fade-up" style={delai(0.2)}>
+    <div
+      className="hidden lg:block relative rounded-3xl border border-white/30 bg-white/10 backdrop-blur-md p-7 shadow-2xl"
+      style={{ animation: sortie ? 'apercu-sortie .35s ease-in forwards' : `apercu-montee .95s cubic-bezier(.16,1,.3,1) ${attente}s both` }}
+    >
+      <style>{`@keyframes apercu-montee{from{opacity:0;transform:translateY(80vh) scale(.94)}to{opacity:1;transform:none}}@keyframes apercu-sortie{to{opacity:0;transform:translateY(30px) scale(.95)}}`}</style>
+      <button type="button" onClick={fermer} aria-label="Fermer l'aperçu" className="absolute -top-3 -right-3 grid h-9 w-9 place-items-center rounded-full bg-white text-indigo shadow-lg ring-1 ring-black/5 transition hover:scale-110" style={SANS_OMBRE}>
+        <X size={18} aria-hidden="true" />
+      </button>
       <div className="flex items-center justify-between">
         <h2 className="font-display font-bold text-[18px]">Devis quantitatif estimatif</h2>
         <span className="rounded-full border border-white/50 px-2.5 py-0.5 text-[11px] font-semibold" style={{ color: OR }}>Exemple</span>
@@ -95,8 +108,8 @@ function AccueilMobile({ connecterGoogle, erreur }) {
         <div className="mx-auto inline-flex items-center gap-3 animate-fade-up">
           <LogoMark size={50} glow />
           <div className="leading-none">
-            <h1 className="font-display font-bold text-[23px] tracking-tight text-white">
-              Civil<span style={{ color: OR }}>Estimator</span>
+            <h1 className="font-display font-bold text-[23px] tracking-tight" style={HALO}>
+              <span style={{ color: '#0b0b0f' }}>Civil</span><span style={{ color: '#FF7A00' }}>Estimator</span>
             </h1>
             <p className="mt-1.5 text-[11px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
           </div>
@@ -186,6 +199,7 @@ function AccueilMobile({ connecterGoogle, erreur }) {
 
 export default function AuthGate() {
   const { connecterGoogle, erreur } = useAuth()
+  const [apercu, setApercu] = useState(true)
   return (
     <div className="relative min-h-[100dvh] overflow-hidden gradient-hero animate-drift flex flex-col text-white" style={OMBRE}>
       <HeroDecor dense compactMobile />
@@ -197,14 +211,14 @@ export default function AuthGate() {
       <main className="relative z-10 flex-1 flex flex-col w-full px-6 sm:px-10 lg:px-16">
         {/* ── 1. Présentation ─────────────────────────────────────────────── */}
         <section className="w-full pt-9 sm:pt-12 pb-10 sm:pb-12 animate-fade-up">
-          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 lg:gap-16 items-center">
+          <div className={`grid gap-10 lg:gap-16 items-center ${apercu ? 'lg:grid-cols-[1.15fr_0.85fr]' : ''}`}>
           <div>
           {/* Marque : couleurs d'origine du nom, sur pastille blanche pour rester lisible */}
           <div className="inline-flex items-center gap-4">
             <LogoMark size={60} glow />
             <div className="leading-tight">
-              <h1 className="font-display font-bold text-[24px] sm:text-[34px] tracking-tight text-white">
-                Civil<span style={{ color: OR }}>Estimator</span>
+              <h1 className="font-display font-bold text-[24px] sm:text-[34px] tracking-tight" style={HALO}>
+                <span style={{ color: '#0b0b0f' }}>Civil</span><span style={{ color: '#FF7A00' }}>Estimator</span>
               </h1>
               <p className="text-[11.5px] sm:text-[13px] font-medium text-white/90">Métré &amp; DQE · Bénin</p>
             </div>
@@ -219,7 +233,7 @@ export default function AuthGate() {
           </p>
 
           </div>
-          <ApercuDQE />
+          {apercu && <ApercuDQE onFerme={() => setApercu(false)} />}
           </div>
           <ul className="mt-12 grid gap-7 md:grid-cols-3 md:gap-0">
             {FONCTIONS.map(({ Icone, couleur, ico, t, d }, i) => (

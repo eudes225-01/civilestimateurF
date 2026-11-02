@@ -97,7 +97,7 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
 
         {/* ── Périmètre couvert (B2) ── */}
         <div className="rounded-xl2 bg-indigo-soft border border-indigo/20 px-3.5 py-2.5 text-[12.5px] text-indigo-deep mb-4">
-          <b>Périmètre :</b> {dqe.perimetre}
+          <b>Somme :</b> {dqe.perimetre}
         </div>
 
         <div className="overflow-x-auto">
