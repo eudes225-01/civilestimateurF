@@ -51,7 +51,7 @@ function Slot({ type, files, onAdd, onRemove, disabled, verrouille }) {
       <div className="flex items-start gap-2.5">
         <div className={`shrink-0 w-9 h-9 rounded-[10px] grid place-items-center text-white ${m.box}`}><m.Ic size={18} /></div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-display font-semibold text-[14px] leading-tight">{t.lab}{recommande && !verrouille && <span className="ml-1.5 align-middle text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-muted-bg text-muted border border-line">Recommandé</span>}{verrouille && <span className="ml-1.5 align-middle inline-flex items-center gap-1 text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-soleil-soft text-soleil-deep border border-soleil/30"><Lock size={9} /> Premium</span>}</h3>
+          <h3 className="font-display font-semibold text-[14px] leading-tight">{t.lab}{recommande && !verrouille && <span className="ml-1.5 align-middle text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-muted-bg text-muted border border-line">Recommandé</span>}{verrouille && <span className="ml-1.5 align-middle inline-flex items-center gap-1 text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-soleil-soft text-soleil-deep border border-soleil/30"><Lock size={9} /> CST</span>}</h3>
           <p className="text-[11.5px] text-muted leading-snug mt-0.5">→ {t.module}</p>
         </div>
         {rempli && <span className="shrink-0 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-jade-soft text-jade-deep border border-jade/25">{files.length}</span>}

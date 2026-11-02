@@ -1,27 +1,27 @@
 // src/components/AccountMenu.jsx
 // Coin supérieur droit : photo + nom du compte Google. Un clic ouvre le menu du compte :
-// créer un projet, enregistrer, mes projets (ouvrir / supprimer), abonnement Premium,
+// créer un projet, enregistrer, mes projets (ouvrir / supprimer), crédits CST (solde, achat),
 // se déconnecter, supprimer mon compte.
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Save, FolderOpen, Plus, LogOut, Loader, Check, AlertTriangle, Trash2, X, Crown, ChevronDown, UserX, ShieldCheck, FileText, Pencil,
+  Save, FolderOpen, Plus, LogOut, Loader, Check, AlertTriangle, Trash2, X, Coins, ChevronDown, UserX, ShieldCheck, FileText, Pencil,
 } from 'lucide-react'
 import { listerProjets, supprimerProjet } from '../lib/projets.js'
 import { api } from '../lib/api.js'
 import { profilUtilisateur } from '../lib/auth.jsx'
 import StatutBadge from './StatutBadge.jsx'
 import { Button } from './ui/index.jsx'
+import { fmtCst } from '../lib/acces.js'
 
 const fmtDate = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 const MSG_RENVOI = {
   trop_tot: 'Une confirmation vient d\u2019être envoyée. Patientez deux minutes avant de réessayer.',
-  aucun_paiement: 'Aucun paiement trouvé sur ce compte.',
+  aucun_paiement: 'Aucun achat de crédits trouvé sur ce compte.',
   pdf_indisponible: 'Le PDF ne peut pas être généré pour le moment. Réessayez dans un instant.',
   trop_de_requetes: 'Trop de demandes. Réessayez dans quelques minutes.',
   defaut: 'Envoi impossible pour le moment. Réessayez dans un instant.',
 }
-const fmtJour = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
 /** Photo du compte ; initiales si elle manque ou ne se charge pas (referrerPolicy : les photos Google la refusent parfois). */
 export function Avatar({ profil, size = 34 }) {
@@ -33,7 +33,7 @@ export function Avatar({ profil, size = 34 }) {
   return <span style={{ ...style, fontSize: size * 0.38 }} className="rounded-full grid place-items-center bg-indigo text-white font-bold">{profil.initiales}</span>
 }
 
-export default function AccountMenu({ user, statut, finAbonnement, projetId, titre = '', etat, onSave, onOpen, onNew, onRename, onSignOut, onDeleteAccount, onPremium }) {
+export default function AccountMenu({ user, statut, solde = 0, aDejaAchete = false, projetId, titre = '', etat, onSave, onOpen, onNew, onRename, onSignOut, onDeleteAccount, onCredits }) {
   const profil = profilUtilisateur(user)
   const [menu, setMenu] = useState(false)
   const [ouvert, setOuvert] = useState(false)          // fenêtre « Mes projets »
@@ -129,7 +129,7 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, tit
           className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-line bg-card hover:border-indigo transition-colors" title="Mon compte">
           <Avatar profil={profil} />
           <span className="hidden md:block max-w-[140px] truncate text-[12.5px] font-semibold">{profil.nomComplet}</span>
-          {statut === 'premium' && <Crown size={13} className="text-soleil-deep" />}
+          {statut === 'standard' && <span className="hidden sm:inline-flex items-center gap-1 text-[11.5px] font-semibold text-soleil-deep"><Coins size={13} />{fmtCst(solde)}</span>}
           <ChevronDown size={14} className={`text-muted transition-transform ${menu ? 'rotate-180' : ''}`} />
         </button>
 
@@ -140,10 +140,9 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, tit
               <div className="min-w-0">
                 <p className="truncate font-display font-bold text-[14px]">{profil.nomComplet}</p>
                 {profil.email && <p className="truncate text-[11.5px] text-muted">{profil.email}</p>}
-                <div className="mt-1"><StatutBadge statut={statut} /></div>
+                <div className="mt-1"><StatutBadge statut={statut} solde={solde} /></div>
               </div>
             </div>
-            {statut === 'premium' && finAbonnement && <p className="px-3 pb-2 text-[11.5px] text-muted">Premium actif jusqu'au {fmtJour(finAbonnement)}</p>}
             {statut === 'admin' && <p className="px-3 pb-2 text-[11.5px] text-muted flex items-center gap-1.5"><ShieldCheck size={12} /> Accès complet à toutes les fonctionnalités</p>}
 
             <div className="border-t border-line my-1" />
@@ -154,12 +153,12 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, tit
               onClick={() => { if (titre.trim()) { setMenu(false); onSave() } else demanderNom('enregistrer') }}><Save size={15} /> {projetId ? 'Enregistrer' : 'Enregistrer le projet'}</button>
             <button role="menuitem" className={item} onClick={ouvrir}><FolderOpen size={15} /> Mes projets <span className="ml-auto text-[11px] text-muted">ouvrir · supprimer</span></button>
             {statut !== 'admin' && statut !== 'local' && statut !== 'gratuit' && (
-              <button role="menuitem" className={`${item} text-soleil-deep`} onClick={() => { setMenu(false); onPremium() }}>
-                <Crown size={15} /> {statut === 'premium' ? 'Mon abonnement Premium' : 'Passer Premium'}
+              <button role="menuitem" className={`${item} text-soleil-deep`} onClick={() => { setMenu(false); onCredits() }}>
+                <Coins size={15} /> Mes crédits CST <span className="ml-auto text-[11px] text-muted">acheter · solde</span>
               </button>
             )}
 
-            {statut === 'premium' && (
+            {aDejaAchete && (
               <button role="menuitem" className={item} onClick={renvoyerConfirmation}>
                 <FileText size={15} /> Renvoyer ma confirmation <span className="ml-auto text-[11px] text-muted">PDF par e-mail</span>
               </button>
@@ -229,7 +228,7 @@ export default function AccountMenu({ user, statut, finAbonnement, projetId, tit
               <UserX size={20} /><h2 className="font-display font-bold text-[17px]">Supprimer mon compte</h2>
             </div>
             <p className="mt-3 text-[13px] leading-relaxed">
-              Cette action est <b>définitive</b>. Votre compte, tous vos projets enregistrés et votre abonnement{statut === 'premium' ? ' Premium (même s\u2019il reste des jours à courir, sans remboursement)' : ''} seront effacés.
+              Cette action est <b>définitive</b>. Votre compte, tous vos projets enregistrés{statut === 'gratuit' || statut === 'admin' ? '' : <> et votre solde de crédits CST{solde > 0 ? ` (${fmtCst(solde)} restants, sans remboursement)` : ''}</>} seront effacés.
             </p>
             <label className="block mt-4 text-[12.5px] text-muted">Tapez <b className="text-ink">SUPPRIMER</b> pour confirmer</label>
             <input value={saisie} onChange={(e) => setSaisie(e.target.value)} autoFocus disabled={enCours}

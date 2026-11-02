@@ -71,7 +71,7 @@ function ListEditor({ titre, items, cols, def, onChange, addLabel = 'Ajouter' })
   )
 }
 
-export default function TabNiveaux({ levels, setLevels, params, setParams, premium = true, onPremium }) {
+export default function TabNiveaux({ levels, setLevels, params, setParams, peutLire = true, onCredits }) {
   const { totaux, parNiveau, alertes } = useMemo(() => metrerProjet(levels, params), [levels, params])
   const [ouvertRatios, setOuvertRatios] = useState(false)
 
@@ -486,7 +486,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, premi
             </div>
 
             {/* Import plan de ce niveau */}
-            <LevelPlan levelName={lv.nom} onApply={(data) => applyLevelPlan(li, data)} premium={premium} onPremium={onPremium} />
+            <LevelPlan levelName={lv.nom} onApply={(data) => applyLevelPlan(li, data)} peutLire={peutLire} onCredits={onCredits} />
 
             {/* Résumé niveau */}
             {Object.keys(m).length > 0 && (

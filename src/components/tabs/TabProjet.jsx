@@ -4,13 +4,13 @@ import React from 'react'
 import { Card, Input, Label, SectionTitle } from '../ui/index.jsx'
 import PlanAnalyzer from '../PlanAnalyzer.jsx'
 
-export default function TabProjet({ proj, setProj, setLevels, setParams, couverture, depots, setDepots, premium = true, onPremium }) {
+export default function TabProjet({ proj, setProj, setLevels, setParams, couverture, depots, setDepots, peutLire = true, onCredits, solde = null, minimum = 2500, admin = false }) {
   const set = (k, v) => setProj({ ...proj, [k]: v })
 
   return (
     <div className="grid gap-5">
       {/* ── 1. Analyse de plan (fonction phare) ── */}
-      <PlanAnalyzer proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} couverture={couverture} depots={depots} setDepots={setDepots} premium={premium} onPremium={onPremium} />
+      <PlanAnalyzer proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} couverture={couverture} depots={depots} setDepots={setDepots} peutLire={peutLire} onCredits={onCredits} solde={solde} minimum={minimum} admin={admin} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* ── 2. Informations du projet ── */}
@@ -54,7 +54,7 @@ export default function TabProjet({ proj, setProj, setLevels, setParams, couvert
             </p>
             <div className="flex gap-3">
               <span className="shrink-0 w-8 h-8 rounded-[10px] grid place-items-center bg-laterite text-white"><FileText size={16} /></span>
-              <p><b>Avec un plan de fondation</b> : déposez-le dans la case « Plan de fondation » ci-dessus (fonction Premium). Type, section des semelles, profondeur, longrines, chaînages, béton de propreté et prescriptions écrites sur le plan sont lus, puis vérifiables avant calcul.</p>
+              <p><b>Avec un plan de fondation</b> : déposez-le dans la case « Plan de fondation » ci-dessus (lecture facturée en crédits CST). Type, section des semelles, profondeur, longrines, chaînages, béton de propreté et prescriptions écrites sur le plan sont lus, puis vérifiables avant calcul.</p>
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-8 h-8 rounded-[10px] grid place-items-center bg-indigo text-white"><PenLine size={16} /></span>

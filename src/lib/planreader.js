@@ -13,6 +13,7 @@
 // données brutes ; les calculs sont faits ensuite par le moteur déterministe,
 // module par type, après validation humaine (écran « Vérifier la lecture »).
 import { api } from './api.js'
+import { messageCreditsInsuffisants } from './acces.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import { TYPES_PLANS, CLES_TYPES_PLANS, routerPlan, lireIFC } from 'civilestimateur-engine'
@@ -250,7 +251,10 @@ Si tout concorde : { "ecarts": [], "confiance": "haute" }`
 
 const ERRORS = {
   analyse_non_configuree: "Le service de lecture automatique n'est pas configuré sur le serveur (clé manquante).",
-  premium_required: 'Cette fonction nécessite un accès actif.',
+  auth_requise: 'Votre session a expiré : reconnectez-vous puis relancez la lecture.',
+  session_invalide: 'Votre session a expiré : reconnectez-vous puis relancez la lecture.',
+  credits_indisponibles: 'Vos crédits CST ne peuvent pas être vérifiés pour le moment. Réessayez dans un instant.',
+  credits_non_configures: 'Les crédits CST ne sont pas encore disponibles sur le serveur.',
   offline: 'La lecture automatique nécessite le service en ligne (VITE_API_URL + serveur démarré).',
   parse: "Le plan n'a pas pu être interprété (cotes ou échelle illisibles).",
 }
@@ -339,8 +343,21 @@ export function parseJSON(text) {
   return JSON.parse(clean.slice(start, end + 1))
 }
 
+// Lecture facturée en crédits CST : le PREMIER appel d'une lecture porte le drapeau « début » (solde minimum exigé).
+let premierAppel = true
+const nouvelleLecture = () => { premierAppel = true }
+
 async function callModel(messages) {
-  const res = await api.analysePlan(messages)
+  const debut = premierAppel
+  let res
+  try {
+    res = await api.analysePlan(messages, { debut })
+  } catch (e) {
+    if (e?.error === 'credits_insuffisants') throw Object.assign(new Error(messageCreditsInsuffisants(e, debut)), { code: 'credits_insuffisants' })
+    if (ERRORS[e?.error]) throw Object.assign(new Error(ERRORS[e.error]), { code: e.error })
+    throw e
+  }
+  premierAppel = false
   if (!res) throw Object.assign(new Error(ERRORS.offline), { code: 'offline' })
   if (res.error) throw Object.assign(new Error(ERRORS[res.error] || `Erreur : ${res.error}`), { code: res.error })
   return (res.content || []).map((b) => b.text || '').join('\n')
@@ -383,6 +400,7 @@ export async function analyzePlans(depots = {}, opts = {}) {
     if (file.size > PLAN_MAX_MB * 1024 * 1024) return { ok: false, code: 'size', message: `« ${file.name} » : fichier trop lourd (max ${PLAN_MAX_MB} Mo).` }
   }
 
+  nouvelleLecture() // une lecture = tous les appels qui suivent ; le premier exige le solde minimum de CST
   const lectures = []
   let guideIFC = null   // guide d'export (ArchiCAD) renvoyé par le lecteur quand la maquette est refusée
   let fait = 0
@@ -495,6 +513,7 @@ export async function analyzeNiveau(file) {
   if (!file) return { ok: false, message: 'Aucun fichier sélectionné.' }
   if (!PLAN_ACCEPTS.includes(file.type)) return { ok: false, code: 'format', message: 'Format non supporté. Utilisez un PDF ou une image (PNG, JPG, WEBP).' }
   if (file.size > PLAN_MAX_MB * 1024 * 1024) return { ok: false, code: 'size', message: `Fichier trop lourd (max ${PLAN_MAX_MB} Mo).` }
+  nouvelleLecture()
   try {
     const [img] = await chargerImages(file)
     const loc = getLocatorImage(img)

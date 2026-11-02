@@ -7,7 +7,7 @@ import { jetonSession } from './supabase.js'
 
 const BASE = import.meta.env.VITE_API_URL || ''
 
-/** Vrai si un backend est configuré. Sans backend (développement local), il n'y a ni abonnement ni verrou. */
+/** Vrai si un backend est configuré. Sans backend (développement local), il n'y a ni crédits ni verrou. */
 export const backendActif = !!BASE
 
 async function call(method, path, body) {
@@ -43,23 +43,36 @@ async function pdfDevis(body, signal) {
   return r.blob()
 }
 
+/** Événement émis après chaque lecture facturée : { cout, solde } (le solde affiché suit sans nouvel appel). */
+export const EVT_CST = 'cst:maj'
+
+/**
+ * Lecture de plans (facturée en crédits CST au nombre de tokens traités).
+ * `debut` : premier appel d'une lecture → le serveur exige alors le solde minimum de lecture.
+ */
+async function analysePlan(messages, { debut = false } = {}) {
+  const res = await call('POST', '/api/analyse-plan', { messages, debutLecture: !!debut })
+  if (res?.cst && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVT_CST, { detail: res.cst }))
+  return res
+}
+
 export const api = {
   health:      ()       => call('GET',  '/api/health'),
   access:      ()       => call('GET',  '/api/access'),
   prix:        ()       => call('GET',  '/api/prix'),
   calcul:      (body)   => call('POST', '/api/calcul', body),
-  analysePlan: (msgs)   => call('POST', '/api/analyse-plan', { messages: msgs }),
-  // Abonnement FedaPay : init renvoie l'URL de paiement ; verify confirme un paiement au retour du navigateur.
-  // Le paiement exige l'acceptation explicite des conditions : le serveur en garde la preuve (Supabase).
+  analysePlan,
+  // Achat de crédits CST (FedaPay) : init reçoit le forfait choisi et renvoie l'URL de paiement ; verify confirme un
+  // paiement au retour du navigateur. Le paiement exige l'acceptation explicite des conditions : le serveur en garde la preuve.
   fedapayInit:   (body) => call('POST', '/api/fedapay/init', body),
   fedapayVerify: (id) => call('POST', '/api/fedapay/verify', id ? { id } : undefined),
-  // Suppression définitive du compte (profil, projets, abonnements) : confirmation explicite exigée par le serveur.
+  // Suppression définitive du compte (profil, projets, solde et achats de crédits) : confirmation explicite exigée par le serveur.
   supprimerCompte: () => call('DELETE', '/api/compte', { confirmation: 'SUPPRIMER' }),
   // Mail de bienvenue : le serveur n'écrit qu'à la toute première connexion du compte.
   bienvenue:   ()       => call('POST', '/api/email/bienvenue'),
   // Preuve d'acceptation des conditions d'utilisation (écran d'accueil).
   accepterConditions: (version) => call('POST', '/api/politiques/acceptation', { version }),
-  // Renvoie par e-mail la confirmation d'abonnement (PDF + conditions) à l'adresse du compte.
-  renvoyerConfirmation: () => call('POST', '/api/abonnement/confirmation/renvoyer'),
+  // Renvoie par e-mail la confirmation d'achat de crédits (PDF + conditions) à l'adresse du compte.
+  renvoyerConfirmation: () => call('POST', '/api/credits/confirmation/renvoyer'),
   pdfDevis,
 }

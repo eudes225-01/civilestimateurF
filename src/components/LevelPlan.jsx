@@ -4,14 +4,14 @@
 // laisse l'utilisateur importer dans le niveau.
 import React, { useRef, useState } from 'react'
 import { UploadCloud, Loader, Check, X, AlertTriangle, ScanLine, ChevronDown, Lock } from 'lucide-react'
-import { EtiquettePremium } from './StatutBadge.jsx'
+import { EtiquetteCredits } from './StatutBadge.jsx'
 import { Button } from './ui/index.jsx'
 import { analyzeNiveau, normPiece, normMur, normPoteau, PLAN_MAX_MB } from '../lib/planreader.js'
 import { TYPES_MUR } from '../lib/metre.js'
 import PlanHelp from './PlanHelp.jsx'
 
-// `premium` : l'import d'un plan (lecture automatique) est une fonction Premium ; sinon, un bouton ouvre l'abonnement.
-export default function LevelPlan({ levelName, onApply, premium = true, onPremium }) {
+// `peutLire` : l'import d'un plan (lecture automatique) consomme des crédits CST ; sans solde suffisant, un bouton ouvre l'achat de crédits.
+export default function LevelPlan({ levelName, onApply, peutLire = true, onCredits }) {
   const inputRef = useRef(null)
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState(null)
@@ -45,13 +45,13 @@ export default function LevelPlan({ levelName, onApply, premium = true, onPremiu
 
   const incertitudes = result?.incertitudes || []
 
-  if (!premium) {
+  if (!peutLire) {
     return (
       <div className="border-t border-line">
-        <button onClick={onPremium} className="w-full flex items-center gap-2 px-5 py-2.5 text-[12.5px] font-semibold text-soleil-deep hover:bg-soleil-soft/50 transition-colors">
+        <button onClick={onCredits} className="w-full flex items-center gap-2 px-5 py-2.5 text-[12.5px] font-semibold text-soleil-deep hover:bg-soleil-soft/50 transition-colors">
           <Lock size={14} />
           Importer le plan de ce niveau (lecture assistée)
-          <EtiquettePremium className="ml-auto" />
+          <EtiquetteCredits className="ml-auto" />
         </button>
       </div>
     )

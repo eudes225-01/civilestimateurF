@@ -1,13 +1,15 @@
 // src/components/Conditions.jsx
 // Fenêtre « Conditions d'utilisation » : texte complet (src/data/politiques.js), ouvrable depuis l'accueil,
-// le pied de page et la fenêtre d'abonnement.
+// le pied de page et la fenêtre d'achat de crédits.
 import React from 'react'
 import { X } from 'lucide-react'
 import { Button } from './ui/index.jsx'
-import { POLITIQUES_SECTIONS, POLITIQUES_VERSION, POLITIQUES_DATE, CONTACT_EMAIL } from '../data/politiques.js'
+import { APP_GRATUITE } from '../config/mode.js'
+import { sectionsPourMode, POLITIQUES_VERSION, POLITIQUES_DATE, CONTACT_EMAIL } from '../data/politiques.js'
 
 export default function Conditions({ ouvert, onFermer }) {
   if (!ouvert) return null
+  const sections = sectionsPourMode(APP_GRATUITE)
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/40 px-4 py-6 overflow-auto" onClick={onFermer}>
       <div role="dialog" aria-modal="true" aria-label="Conditions d'utilisation"
@@ -17,7 +19,7 @@ export default function Conditions({ ouvert, onFermer }) {
         <h2 className="font-display font-bold text-[20px]">Conditions d'utilisation</h2>
         <p className="mt-1 text-[12px] text-muted">Version {POLITIQUES_VERSION} · mise à jour le {POLITIQUES_DATE}</p>
         <div className="mt-4 space-y-4">
-          {POLITIQUES_SECTIONS.map((s) => (
+          {sections.map((s) => (
             <section key={s.t}>
               <h3 className="font-semibold text-[13.5px]">{s.t}</h3>
               <p className="mt-1 text-[13px] text-muted leading-relaxed">{s.c}</p>
@@ -25,9 +27,9 @@ export default function Conditions({ ouvert, onFermer }) {
           ))}
           {CONTACT_EMAIL && (
             <section>
-              <h3 className="font-semibold text-[13.5px]">11. Contact</h3>
+              <h3 className="font-semibold text-[13.5px]">{sections.length + 1}. Contact</h3>
               <p className="mt-1 text-[13px] text-muted leading-relaxed">
-                Une question, un paiement à vérifier, une demande sur vos données : <a className="underline text-indigo" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+                {APP_GRATUITE ? 'Une question, une demande sur vos données :' : 'Une question, un paiement à vérifier, une demande sur vos données :'} <a className="underline text-indigo" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
               </p>
             </section>
           )}

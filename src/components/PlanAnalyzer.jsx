@@ -5,11 +5,13 @@
 // écran « VÉRIFIER LA LECTURE » → validation humaine → calcul par module.
 // Rien n'est calculé avant la validation ; le devis n'est jamais généré
 // directement depuis la lecture.
-import React, { useState } from 'react'
-import { Loader, Check, AlertTriangle, Wand2, ScanLine, Trash2, Lock, Crown } from 'lucide-react'
-import { EtiquettePremium } from './StatutBadge.jsx'
+import React, { useEffect, useState } from 'react'
+import { Loader, Check, AlertTriangle, Wand2, ScanLine, Trash2, Coins } from 'lucide-react'
+import { EtiquetteCredits } from './StatutBadge.jsx'
 import { Card, Button, SectionTitle, Badge } from './ui/index.jsx'
 import { analyzePlans, extractionToProject, PLAN_MAX_MB } from '../lib/planreader.js'
+import { EVT_CST } from '../lib/api.js'
+import { fmtCst } from '../lib/acces.js'
 import PlanDeposits from './PlanDeposits.jsx'
 import PlanReview from './PlanReview.jsx'
 import PlanHelp from './PlanHelp.jsx'
@@ -19,15 +21,25 @@ import { plansAbsents } from '../lib/planGate.js'
 import { CouvertureBandeau } from './ValidationExceptions.jsx'
 
 // `depots` / `setDepots` sont portés par App. Aucun plan n'est obligatoire : `couverture` (moteur) mesure ce qui est lu.
-// `premium` : le dépôt de plans est une fonction Premium (ou admin). Sans cela, les dépôts sont verrouillés
-// et le bouton « Passer Premium » (`onPremium`) ouvre le récapitulatif de l'abonnement.
-export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couverture, depots, setDepots, premium = true, onPremium }) {
+// `peutLire` : le solde de crédits CST permet de démarrer une lecture (ou compte admin). Les dépôts restent libres ;
+// sans solde suffisant, seul le lancement de la lecture est bloqué et `onCredits` ouvre l'achat de crédits.
+// `solde` / `minimum` : affichés pour que le coût de la lecture ne soit jamais une surprise.
+export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couverture, depots, setDepots, peutLire = true, onCredits, solde = null, minimum = 2500, admin = false }) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(null)
   const [error, setError] = useState('')
   const [errorGuide, setErrorGuide] = useState(null)
   const [ex, setEx] = useState(null)
   const [applied, setApplied] = useState(false)
+  const [conso, setConso] = useState(null) // CST consommés par la dernière lecture : { cout, appels }
+
+  // Chaque appel facturé renvoie son coût (événement émis par lib/api.js) : on cumule celui de la lecture en cours.
+  useEffect(() => {
+    if (!busy) return undefined
+    const cumul = (e) => setConso((c) => ({ cout: (c?.cout || 0) + (Number(e.detail?.cout) || 0), appels: (c?.appels || 0) + 1 }))
+    window.addEventListener(EVT_CST, cumul)
+    return () => window.removeEventListener(EVT_CST, cumul)
+  }, [busy])
 
   const nbFichiers = Object.values(depots).reduce((s, l) => s + l.length, 0)
   const nbTypes = Object.values(depots).filter((l) => l.length).length
@@ -37,7 +49,7 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
 
   const analyser = async () => {
     if (!nbFichiers) return
-    setBusy(true); setError(''); setErrorGuide(null); setEx(null); setApplied(false); setProgress({ fait: 0, total: nbFichiers, message: 'Préparation…' })
+    setBusy(true); setError(''); setErrorGuide(null); setEx(null); setApplied(false); setConso(null); setProgress({ fait: 0, total: nbFichiers, message: 'Préparation…' })
     const res = await analyzePlans(depots, { verifier: true, onProgress: setProgress })
     setBusy(false); setProgress(null)
     if (!res.ok) { setError(res.message); setErrorGuide(res.guide || null); return }
@@ -81,7 +93,7 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
     <Card className="p-0" accent="lagune">
       <div className="px-5 pt-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <SectionTitle accent="lagune" className="mb-0 inline-flex items-center gap-2">Lecture assistée des plans <EtiquettePremium /></SectionTitle>
+          <SectionTitle accent="lagune" className="mb-0 inline-flex items-center gap-2">Lecture assistée des plans <EtiquetteCredits /></SectionTitle>
           <Badge variant="lag"><ScanLine size={13} /> Catégorisation automatique par type de plan</Badge>
         </div>
         <p className="text-[13px] text-muted mt-1.5">
@@ -93,43 +105,54 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
       </div>
 
       <div className="p-5">
-        {!premium && (
+        {/* Crédits CST : la lecture est facturée au nombre de tokens traités ; le solde minimum est exigé pour la démarrer */}
+        {!peutLire ? (
           <div className="mb-4 rounded-xl2 border border-soleil/40 bg-soleil-soft/60 px-4 py-3.5 flex flex-wrap items-center gap-3">
-            <span className="shrink-0 w-9 h-9 rounded-full bg-soleil-soft grid place-items-center text-soleil-deep border border-soleil/30"><Lock size={17} /></span>
+            <span className="shrink-0 w-9 h-9 rounded-full bg-soleil-soft grid place-items-center text-soleil-deep border border-soleil/30"><Coins size={17} /></span>
             <p className="flex-1 min-w-[220px] text-[12.5px] leading-snug">
-              <b>Dépôt de plans : fonction Premium.</b> Sans abonnement, saisissez vos dimensions dans l'onglet « Niveaux &amp; métré » :
-              le métré, les prix et le DQE restent gratuits.
+              <b>Crédits CST insuffisants pour lancer une lecture.</b> Il en faut au moins {fmtCst(minimum)} (solde : {fmtCst(solde ?? 0)}). Vous pouvez déposer vos plans dès maintenant,
+              ou saisir vos dimensions dans l'onglet « Niveaux &amp; métré » : le métré, les prix, le DQE et l'export PDF restent gratuits.
             </p>
-            <Button variant="accent" size="sm" onClick={onPremium}><Crown size={14} /> Passer Premium</Button>
+            <Button variant="accent" size="sm" onClick={onCredits}><Coins size={14} /> Acheter des crédits</Button>
           </div>
+        ) : !admin && solde != null && (
+          <p className="mb-4 text-[12px] text-muted inline-flex items-center gap-1.5">
+            <Coins size={13} className="text-soleil-deep" /> Solde : <b className="text-ink">{fmtCst(solde)}</b> · la lecture consomme des CST selon les tokens traités (minimum {fmtCst(minimum)} pour démarrer).
+            <button type="button" className="underline text-indigo" onClick={onCredits}>Recharger</button>
+          </p>
         )}
 
-        {/* Vidéo facultative, visible par tous (y compris sans abonnement) : elle donne envie de passer Premium.
-            Seuls les dépôts restent verrouillés. */}
+        {/* Vidéo facultative, annoncée avant les dépôts (démarrage automatique à la première visite) */}
         <VideoGuideIFC />
 
-        <PlanDeposits depots={depots} setDepots={changerDepots} disabled={busy || !premium} verrouille={!premium} />
+        <PlanDeposits depots={depots} setDepots={changerDepots} disabled={busy} />
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button variant="accent" onClick={analyser} disabled={!premium || !nbFichiers || busy}>
+          <Button variant="accent" onClick={analyser} disabled={!peutLire || !nbFichiers || busy}>
             {busy ? <Loader size={15} className="animate-spin" /> : <Wand2 size={15} />}
             {busy ? 'Lecture des plans…' : `Lancer la lecture${nbFichiers ? ` (${nbFichiers} plan${nbFichiers > 1 ? 's' : ''}, ${nbTypes} type${nbTypes > 1 ? 's' : ''})` : ''}`}
           </Button>
           {nbFichiers > 0 && !busy && (
             <Button variant="ghost" onClick={() => changerDepots({})}><Trash2 size={14} /> Tout retirer</Button>
           )}
-          {premium && !nbFichiers && <span className="text-[12.5px] text-muted">Déposez vos plans (jusqu'à {PLAN_MAX_MB} Mo chacun).</span>}
+          {!nbFichiers && <span className="text-[12.5px] text-muted">Déposez vos plans (jusqu'à {PLAN_MAX_MB} Mo chacun).</span>}
           {nbFichiers > 0 && !busy && <span className="text-[12.5px] text-muted">Le plan sert uniquement à produire votre devis. Double lecture active.</span>}
         </div>
 
         {/* ── Plans recommandés : information seulement, jamais un verrou ── */}
-        {premium && nbFichiers > 0 && absents.length > 0 && (
+        {nbFichiers > 0 && absents.length > 0 && (
           <p className="mt-4 text-[12px] text-muted">
             Non déposés (facultatif) : {absents.map((p) => p.lab).join(', ')}. Les données correspondantes pourront vous être demandées dans l'étape de validation.
           </p>
         )}
 
         {couverture && !couverture.vide && <div className="mt-4"><CouvertureBandeau couverture={couverture} /></div>}
+
+        {conso && (
+          <p role="status" className="mt-3 text-[12px] text-muted inline-flex items-center gap-1.5">
+            <Coins size={13} className="text-soleil-deep" /> {busy ? 'Consommation en cours' : 'Lecture terminée'} : <b className="text-ink">{fmtCst(conso.cout)}</b> ({conso.appels} appel{conso.appels > 1 ? 's' : ''}).
+          </p>
+        )}
 
         {busy && progress && (
           <div className="mt-4 rounded-xl2 border border-lagune/30 bg-lagune-soft/50 px-4 py-3">

@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react'
-import { FileText, Layers, Table, Ruler, FileDown, Home, ArrowRight, ArrowLeft, Lock } from 'lucide-react'
+import { FileText, Layers, Table, Ruler, FileDown, Home, ArrowRight, ArrowLeft } from 'lucide-react'
 import { Onboarding, Footer } from './components/Shell.jsx'
 import { LogoMark, LogoWord } from './components/Logo.jsx'
 import TabTransition from './components/TabTransition.jsx'
@@ -8,19 +8,17 @@ import TabProjet from './components/tabs/TabProjet.jsx'
 import TabNiveaux from './components/tabs/TabNiveaux.jsx'
 import TabPrix from './components/tabs/TabPrix.jsx'
 import TabDQE from './components/tabs/TabDQE.jsx'
-import { estPayant, contenuAccessible, paywallAffiche } from './lib/acces.js'
+import { minimumLecture } from './lib/acces.js'
 import { TRANSITION_MS } from './lib/transition.js'
 import TabExport from './components/tabs/TabExport.jsx'
 import { PRIX, PRIX_VERSION, PRIX_DATE } from './lib/metre.js'
 import { api } from './lib/api.js'
 import { useAuth } from './lib/auth.jsx'
-import { useAbonnement } from './lib/abonnement.js'
-import Paywall from './components/Paywall.jsx'
+import { useCredits } from './lib/credits.js'
 import AuthGate from './components/AuthGate.jsx'
 import AccountMenu from './components/AccountMenu.jsx'
-import PremiumModal from './components/PremiumModal.jsx'
+import CreditsModal from './components/CreditsModal.jsx'
 import { APP_GRATUITE } from './config/mode.js'
-import { EtiquettePremium } from './components/StatutBadge.jsx'
 import { sauverProjet, chargerProjet, instantane, renommerProjet as renommerEnBase } from './lib/projets.js'
 import { metrerProjet, PARAMS_DEFAUT, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT } from './lib/metre.js'
 
@@ -29,7 +27,7 @@ const TABS = [
   { k: 'niveaux', lab: 'Niveaux & métré', Ic: Layers,   col: 'lagune'   },
   { k: 'prix',    lab: 'Prix',              Ic: Table,    col: 'soleil'   },
   { k: 'dqe',     lab: 'DQE',               Ic: Ruler,    col: 'laterite' },
-  { k: 'export',  lab: 'Export PDF',        Ic: FileDown, col: 'jade',     payant: estPayant('export') },
+  { k: 'export',  lab: 'Export PDF',        Ic: FileDown, col: 'jade'     },
 ]
 
 const projVide = () => ({ titre: '', mo: '', entreprise: '', ref: '', ville: '' })
@@ -50,13 +48,12 @@ export default function App() {
   const [transitioning, setTransitioning] = useState(false)
   const [pendingTab, setPendingTab] = useState(null)
 
-  // Abonnement : seuls le dépôt de plans et l'export PDF sont Premium (statut « premium » ou « admin »).
-  // Tout le reste, DQE compris, est gratuit (statut « standard »).
-  const abo = useAbonnement(chargement ? undefined : (session?.user?.id ?? null))
-  const payant = estPayant
-  const [premiumOuvert, setPremiumOuvert] = useState(false) // fenêtre « récapitulatif + paiement »
+  // Crédits CST : seule la lecture automatique des plans consomme des crédits (au nombre de tokens traités).
+  // Tout le reste — DQE et export PDF compris — est gratuit pour un compte connecté.
+  const credits = useCredits(chargement ? undefined : (session?.user?.id ?? null))
+  const [creditsOuvert, setCreditsOuvert] = useState(false) // fenêtre « solde + forfaits + paiement »
   // Au retour de FedaPay (paiement confirmé ou non), la fenêtre s'ouvre toute seule avec le résultat.
-  useEffect(() => { if (abo.retour) setPremiumOuvert(true) }, [abo.retour])
+  useEffect(() => { if (credits.retour) setCreditsOuvert(true) }, [credits.retour])
 
 
   // Plans déposés. Plus aucun plan n'est obligatoire : le score de couverture (moteur) mesure ce qui est lu,
@@ -72,12 +69,6 @@ export default function App() {
   // Passage d'un onglet à l'autre : transition de 5 s minimum.
   const switchTab = (k) => {
     if (k === tab || transitioning) return
-    // Étape Premium (export PDF) sans abonnement : on affiche directement l'écran d'abonnement (pas de transition).
-    if (payant(k) && !abo.acces) {
-      setTab(k)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
     setPendingTab(k)
     setTransitioning(true)
     setTimeout(() => {
@@ -219,10 +210,10 @@ export default function App() {
             <Home size={17} />
           </button>
           {comptes && session?.user && (
-            <AccountMenu user={session.user} statut={abo.statut} finAbonnement={abo.etat?.finAbonnement}
+            <AccountMenu user={session.user} statut={credits.statut} solde={credits.solde} aDejaAchete={!!credits.etat?.aDejaAchete}
               projetId={projetId} titre={proj.titre} etat={etatSauvegarde}
               onSave={sauvegarder} onOpen={ouvrirProjet} onNew={nouveauProjet} onRename={renommerProjet}
-              onSignOut={deconnecter} onDeleteAccount={supprimerCompte} onPremium={() => setPremiumOuvert(true)} />
+              onSignOut={deconnecter} onDeleteAccount={supprimerCompte} onCredits={() => setCreditsOuvert(true)} />
           )}
         </div>
       </header>
@@ -247,22 +238,17 @@ export default function App() {
               >
                 <span className={`font-mono text-[11px] ${on ? 'opacity-80' : 'opacity-50'}`}>{String(i + 1).padStart(2, '0')}</span>
                 <t.Ic size={15} /> {t.lab}
-                {t.payant && <EtiquettePremium className={on || loading ? '!bg-white/20 !text-white !border-white/30' : ''} />}
-                {(t.payant && !abo.acces) && <Lock size={12} className="opacity-60" />}
               </button>
             )
           })}
         </div>
 
         <div key={tab} className="py-5 animate-fade-up">
-          {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} couverture={couverture} depots={depots} setDepots={setDepots} premium={abo.acces} onPremium={() => setPremiumOuvert(true)} />}
-          {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} premium={abo.acces} onPremium={() => setPremiumOuvert(true)} />}
+          {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} couverture={couverture} depots={depots} setDepots={setDepots} peutLire={credits.acces} onCredits={() => setCreditsOuvert(true)} solde={credits.statut === 'local' ? null : credits.solde} minimum={minimumLecture(credits.etat)} admin={credits.statut === 'admin'} />}
+          {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} peutLire={credits.acces} onCredits={() => setCreditsOuvert(true)} />}
           {tab === 'prix'    && <TabPrix    prix={prix} setPrix={setPrix} prixInfo={prixInfo} params={params} setParams={setParams} />}
-          {paywallAffiche(tab, abo.acces) && (
-            <Paywall etape={TABS.find((t) => t.k === tab)?.lab} abo={abo} onPremium={() => setPremiumOuvert(true)} onRetour={() => setTab('dqe')} />
-          )}
-          {tab === 'dqe'     && contenuAccessible('dqe', abo.acces) && <TabDQE     totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
-          {tab === 'export'  && contenuAccessible('export', abo.acces) && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
+          {tab === 'dqe'     && <TabDQE     totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
+          {tab === 'export'  && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
         </div>
 
         {/* ── Navigation Précédent / Suivant ── */}
@@ -297,7 +283,7 @@ export default function App() {
 
       <Footer prix={prixInfo} />
 
-      {!APP_GRATUITE && <PremiumModal ouvert={premiumOuvert} onFermer={() => setPremiumOuvert(false)} abo={abo} />}
+      {!APP_GRATUITE && <CreditsModal ouvert={creditsOuvert} onFermer={() => setCreditsOuvert(false)} credits={credits} />}
 
       {transitioning && pendingTab && (
         <TabTransition

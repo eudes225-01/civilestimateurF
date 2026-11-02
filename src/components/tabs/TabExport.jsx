@@ -87,9 +87,9 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
       try {
         blob = await pdfServeur(ctx)
       } catch (e) {
-        // Session expirée ou abonnement terminé : pas de PDF de secours, l'export reste réservé aux abonnés.
-        if (e.status === 401 || e.status === 402) {
-          setInfo('Votre abonnement n\'est plus actif : renouvelez-le pour exporter le PDF.')
+        // Session expirée : pas de PDF de secours (l'export reste réservé aux comptes connectés).
+        if (e.status === 401) {
+          setInfo('Votre session a expiré : reconnectez-vous pour exporter le PDF.')
           return
         }
         console.warn('PDF serveur indisponible, bascule sur l\'export local :', e)
