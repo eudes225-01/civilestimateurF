@@ -20,6 +20,7 @@ import GuideExportIFC from './GuideExportIFC.jsx'
 import { plansAbsents } from '../lib/planGate.js'
 import { CouvertureBandeau } from './ValidationExceptions.jsx'
 
+import { APP_GRATUITE } from '../config/mode.js'
 // `depots` / `setDepots` sont portés par App. Aucun plan n'est obligatoire : `couverture` (moteur) mesure ce qui est lu.
 // `peutLire` : le solde de crédits CST permet de démarrer une lecture (ou compte admin). Les dépôts restent libres ;
 // sans solde suffisant, seul le lancement de la lecture est bloqué et `onCredits` ouvre l'achat de crédits.
@@ -106,7 +107,7 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
 
       <div className="p-5">
         {/* Crédits CST : la lecture est facturée au nombre de tokens traités ; le solde minimum est exigé pour la démarrer */}
-        {!peutLire ? (
+        {APP_GRATUITE ? null : !peutLire ? (
           <div className="mb-4 rounded-xl2 border border-soleil/40 bg-soleil-soft/60 px-4 py-3.5 flex flex-wrap items-center gap-3">
             <span className="shrink-0 w-9 h-9 rounded-full bg-soleil-soft grid place-items-center text-soleil-deep border border-soleil/30"><Coins size={17} /></span>
             <p className="flex-1 min-w-[220px] text-[12.5px] leading-snug">
