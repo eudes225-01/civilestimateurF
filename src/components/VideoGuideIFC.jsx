@@ -6,7 +6,7 @@
 //  • facultative : un bouton la masque à tout moment, et elle s'arrête alors ;
 //  • le lien se règle dans src/config/video.js (ou VITE_VIDEO_IFC_URL) ; sans lien, rien n'est affiché.
 import React, { useEffect, useRef, useState } from 'react'
-import { PlayCircle, X, Volume2 } from 'lucide-react'
+import { LoaderCircle, PlayCircle, X, Volume2 } from 'lucide-react'
 import { Button } from './ui/index.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { VIDEO_IFC_URL, VIDEO_IFC_TITRE } from '../config/video.js'
@@ -20,6 +20,7 @@ export default function VideoGuideIFC({ url = VIDEO_IFC_URL, titre = VIDEO_IFC_T
   const video = analyserLienVideo(url)
   const [ouverte, setOuverte] = useState(false)
   const [auto, setAuto] = useState(false)
+  const [lecteurPret, setLecteurPret] = useState(false)
   const sectionRef = useRef(null)
 
   // Première connexion : ouverture + lecture automatiques, une seule fois par utilisateur et par vidéo.
@@ -34,9 +35,26 @@ export default function VideoGuideIFC({ url = VIDEO_IFC_URL, titre = VIDEO_IFC_T
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, url])
 
+  // Réchauffe la connexion au lecteur avant que l'iframe ne soit montée.
+  useEffect(() => {
+    if (!video || video.kind === 'fichier') return
+    const origines = video.kind === 'youtube'
+      ? ['https://www.youtube-nocookie.com', 'https://www.youtube.com', 'https://i.ytimg.com']
+      : ['https://player.vimeo.com', 'https://i.vimeocdn.com', 'https://f.vimeocdn.com']
+    for (const href of origines) {
+      if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) continue
+      const link = document.createElement('link')
+      link.rel = 'preconnect'
+      link.href = href
+      link.crossOrigin = 'anonymous'
+      document.head.appendChild(link)
+    }
+  }, [video?.kind, video?.src])
+
   // Bouton « Comment créer un IFC ? » de la zone de dépôt IFC.
   useEffect(() => {
     const ouvrir = () => {
+      setLecteurPret(false)
       setOuverte(true); setAuto(true)
       // Défilement fluide vers la vidéo (après le rendu, pour viser le lecteur une fois déployé).
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -57,20 +75,23 @@ export default function VideoGuideIFC({ url = VIDEO_IFC_URL, titre = VIDEO_IFC_T
           <p className="text-[12px] text-muted mt-0.5">Facultatif — utile si vous ne savez pas exporter votre plan au format IFC. Un IFC rend la lecture des murs, dalles et poteaux plus rapide et plus précise.</p>
         </div>
         {ouverte
-          ? <Button size="sm" variant="ghost" onClick={() => { setOuverte(false); setAuto(false) }}><X size={14} /> Masquer la vidéo</Button>
-          : <Button size="sm" variant="outline" onClick={() => { setOuverte(true); setAuto(true) }}><PlayCircle size={14} /> Regarder la vidéo</Button>}
+          ? <Button size="sm" variant="ghost" onClick={() => { setOuverte(false); setAuto(false); setLecteurPret(false) }}><X size={14} /> Masquer la vidéo</Button>
+          : <Button size="sm" variant="outline" onClick={() => { setLecteurPret(false); setOuverte(true); setAuto(true) }}><PlayCircle size={14} /> Regarder la vidéo</Button>}
       </div>
 
       {ouverte && (
         <div className="mt-3">
           {/* Paysage 16:9, centrée, jamais plus haute que large */}
-          <div className="mx-auto w-full max-w-[880px] aspect-video rounded-xl overflow-hidden bg-black shadow-soft" style={{ aspectRatio: '16 / 9' }}>
+          <div className="relative mx-auto w-full max-w-[880px] aspect-video rounded-xl overflow-hidden bg-black shadow-soft" style={{ aspectRatio: '16 / 9' }}>
             {video.kind === 'fichier' ? (
-              <video className="w-full h-full" src={video.src} controls playsInline autoPlay={auto} muted={auto} preload="metadata" />
+              <video className="w-full h-full" src={video.src} controls playsInline autoPlay={auto} muted={auto} preload={auto ? 'auto' : 'metadata'} onLoadedData={() => setLecteurPret(true)} />
             ) : (
-              <iframe className="w-full h-full" src={srcLecture(video, auto)} title={titre} loading="lazy"
+              <iframe className="w-full h-full" src={srcLecture(video, auto)} title={titre} loading="eager" onLoad={() => setLecteurPret(true)}
                 allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
             )}
+            {!lecteurPret && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 text-white" role="status" aria-live="polite">
+              <span className="inline-flex items-center gap-2 text-[13px]"><LoaderCircle size={17} className="animate-spin" /> Chargement de la vidéo…</span>
+            </div>}
           </div>
           {auto && <p className="mt-2 text-center text-[11.5px] text-muted inline-flex items-center justify-center gap-1.5 w-full"><Volume2 size={12} /> La vidéo démarre sans le son : activez-le avec les commandes du lecteur.</p>}
         </div>
