@@ -252,12 +252,12 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
         {/* Toiture */}
         <Separator />
         <Label>Type de toiture / couverture <span className="text-muted font-normal">(confronté au plan lu — alerte si contradiction)</span></Label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 auto-rows-fr items-stretch gap-2">
           {Object.entries(TOITURES).map(([key, t]) => {
             const on = (params.toiture || 'bac') === key
             return (
               <button key={key} type="button" onClick={() => setP('toiture', key)}
-                className={`text-left rounded-[11px] border-2 px-3 py-2.5 transition-all ${on ? 'border-soleil bg-soleil-soft shadow-soft' : 'border-line bg-card hover:border-soleil/50'}`}>
+                className={`h-full min-h-[72px] flex flex-col justify-between text-left rounded-[11px] border-2 px-3 py-2.5 transition-all ${on ? 'border-soleil bg-soleil-soft shadow-soft' : 'border-line bg-card hover:border-soleil/50'}`}>
                 <span className={`block text-[12.5px] font-semibold ${on ? 'text-soleil-deep' : 'text-ink'}`}>{t.lab}</span>
                 <span className="block text-[11px] text-muted mt-0.5">{t.pente} · ×{t.coef}</span>
               </button>
@@ -444,57 +444,57 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
         return (
           <Card key={li} className="overflow-hidden">
             {/* En-tête niveau : nom, RDC, HSP, plancher (A3/A4) */}
-            <div className="flex flex-wrap items-end gap-3 px-5 py-3 bg-muted-bg border-b border-line">
-              <div className="min-w-[180px]">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end items-end gap-3 px-5 py-3 bg-muted-bg border-b border-line">
+              <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[180px]">
                 <Label>Niveau</Label>
                 <Input className="font-semibold" value={lv.nom || ''} onChange={(e) => upLevel(li, 'nom', e.target.value)} />
               </div>
-              <label className="flex items-center gap-1.5 text-[13px] pb-2">
+              <label className="flex min-h-[40px] items-center gap-1.5 text-[13px] sm:pb-2">
                 <input type="checkbox" checked={!!lv.rez} onChange={(e) => upLevel(li, 'rez', e.target.checked)} className="w-3.5 h-3.5 accent-ink" />
                 RDC
               </label>
-              <div><Label>HSP (m)</Label><NumIn value={lv.HSP} onChange={(v) => upLevel(li, 'HSP', v)} w="w-[76px]" ph={String(params.Hetage || 3)} /></div>
-              <div className="w-[210px]">
+              <div className="min-w-0"><Label>HSP (m)</Label><NumIn value={lv.HSP} onChange={(v) => upLevel(li, 'HSP', v)} w="w-full sm:w-[76px]" ph={String(params.Hetage || 3)} /></div>
+              <div className="col-span-2 min-w-0 sm:col-span-1 sm:w-[210px]">
                 <Label>Plancher haut du niveau</Label>
-                <Select value={lv.plancher || (lv.dalle ? 'dallePleine' : 'aucun')} onChange={(e) => upLevel(li, 'plancher', e.target.value)} className="text-[12.5px]">
+                <Select value={lv.plancher || (lv.dalle ? 'dallePleine' : 'aucun')} onChange={(e) => upLevel(li, 'plancher', e.target.value)} className="w-full text-[12.5px]">
                   {Object.entries(TYPES_PLANCHER).map(([k, t]) => <option key={k} value={k}>{t.lab}</option>)}
                 </Select>
               </div>
-              <div><Label>Surf. plancher (m²) <span className="text-muted font-normal">(vide = Σ pièces)</span></Label>
-                <NumIn value={lv.surfPlancher} onChange={(v) => upLevel(li, 'surfPlancher', v)} w="w-[104px]" /></div>
-              <div><Label>Trémies (m²)</Label><NumIn value={lv.tremies} onChange={(v) => upLevel(li, 'tremies', v)} w="w-[84px]" /></div>
+              <div className="min-w-0"><Label>Surf. plancher (m²) <span className="text-muted font-normal">(vide = Σ pièces)</span></Label>
+                <NumIn value={lv.surfPlancher} onChange={(v) => upLevel(li, 'surfPlancher', v)} w="w-full sm:w-[104px]" /></div>
+              <div className="min-w-0"><Label>Trémies (m²)</Label><NumIn value={lv.tremies} onChange={(v) => upLevel(li, 'tremies', v)} w="w-full sm:w-[84px]" /></div>
               {/* Données propres au type de plancher (jamais devinées : saisies ou « à confirmer ») */}
               {PLANCHERS_CORPS_CREUX.includes(lv.plancher) && (<>
                 {!TYPES_PLANCHER[lv.plancher]?.corpsCreux && (
-                  <div className="w-[120px]"><Label>Entrevous (cm)</Label>
-                    <Select value={lv.corpsCreux || ''} onChange={(e) => upLevel(li, 'corpsCreux', e.target.value === '' ? '' : +e.target.value)} className="text-[12.5px]">
+                  <div className="col-span-2 min-w-0 sm:col-span-1 sm:w-[120px]"><Label>Entrevous (cm)</Label>
+                    <Select value={lv.corpsCreux || ''} onChange={(e) => upLevel(li, 'corpsCreux', e.target.value === '' ? '' : +e.target.value)} className="w-full text-[12.5px]">
                       <option value="">À choisir</option><option value="15">15 (15+5)</option><option value="20">20 (20+5)</option>
                     </Select></div>
                 )}
-                <div><Label>Entraxe poutrelles (m)</Label><NumIn value={lv.entraxe} onChange={(v) => upLevel(li, 'entraxe', v)} w="w-[96px]" ph="à saisir" /></div>
-                <div><Label>Portée poutrelle (m)</Label><NumIn value={lv.porteePoutrelle} onChange={(v) => upLevel(li, 'porteePoutrelle', v)} w="w-[96px]" ph="optionnel" /></div>
-                <div title="Dimension du plancher PERPENDICULAIRE aux poutrelles : Np = L_perp ÷ entraxe + 1"><Label>L perp. poutrelles (m)</Label><NumIn value={lv.longueurPerpPoutrelles} onChange={(v) => upLevel(li, 'longueurPerpPoutrelles', v)} w="w-[96px]" ph="Np = L÷e+1" /></div>
+                <div className="min-w-0"><Label>Entraxe poutrelles (m)</Label><NumIn value={lv.entraxe} onChange={(v) => upLevel(li, 'entraxe', v)} w="w-full sm:w-[96px]" ph="à saisir" /></div>
+                <div className="min-w-0"><Label>Portée poutrelle (m)</Label><NumIn value={lv.porteePoutrelle} onChange={(v) => upLevel(li, 'porteePoutrelle', v)} w="w-full sm:w-[96px]" ph="optionnel" /></div>
+                <div className="min-w-0" title="Dimension du plancher PERPENDICULAIRE aux poutrelles : Np = L_perp ÷ entraxe + 1"><Label>L perp. poutrelles (m)</Label><NumIn value={lv.longueurPerpPoutrelles} onChange={(v) => upLevel(li, 'longueurPerpPoutrelles', v)} w="w-full sm:w-[96px]" ph="Np = L÷e+1" /></div>
                 <div title="Hourdis : N = S dalle ÷ S hourdis (+ pertes)"><Label>Hourdis L × l (m)</Label><div className="flex gap-1">
                   <NumIn value={lv.dimHourdis?.L} onChange={(v) => upLevel(li, 'dimHourdis', { ...(lv.dimHourdis || {}), L: v })} w="w-[58px]" ph="0,60" />
                   <NumIn value={lv.dimHourdis?.l} onChange={(v) => upLevel(li, 'dimHourdis', { ...(lv.dimHourdis || {}), l: v })} w="w-[58px]" ph="0,20" /></div></div>
-                <div><Label>Pertes hourdis (%)</Label><NumIn value={lv.pertesHourdis} onChange={(v) => upLevel(li, 'pertesHourdis', v)} w="w-[78px]" ph={String(params.pertesHourdis ?? 5)} /></div>
-                <div className="w-[150px]"><Label>Finition sous-face</Label>
-                  <Select value={lv.finitionSousFace || 'aucune'} onChange={(e) => upLevel(li, 'finitionSousFace', e.target.value)} className="text-[12.5px]">
+                <div className="min-w-0"><Label>Pertes hourdis (%)</Label><NumIn value={lv.pertesHourdis} onChange={(v) => upLevel(li, 'pertesHourdis', v)} w="w-full sm:w-[78px]" ph={String(params.pertesHourdis ?? 5)} /></div>
+                <div className="col-span-2 min-w-0 sm:col-span-1 sm:w-[150px]"><Label>Finition sous-face</Label>
+                  <Select value={lv.finitionSousFace || 'aucune'} onChange={(e) => upLevel(li, 'finitionSousFace', e.target.value)} className="w-full text-[12.5px]">
                     <option value="aucune">Aucune</option><option value="enduit">Enduit</option><option value="faux_plafond">Faux plafond</option>
                   </Select></div>
               </>)}
               {['dalleTP', 'dallePleine', 'nervuree'].includes(lv.plancher) && (
-                <div><Label>Périmètre rives (m)</Label><NumIn value={lv.perimetre} onChange={(v) => upLevel(li, 'perimetre', v)} w="w-[96px]" ph="coffrage rives" /></div>
+                <div className="min-w-0"><Label>Périmètre rives (m)</Label><NumIn value={lv.perimetre} onChange={(v) => upLevel(li, 'perimetre', v)} w="w-full sm:w-[96px]" ph="coffrage rives" /></div>
               )}
               {lv.plancher === 'nervuree' && (<>
-                <div><Label>Entraxe nervures (m)</Label><NumIn value={lv.nervures?.entraxe} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), entraxe: v })} w="w-[90px]" /></div>
+                <div className="min-w-0"><Label>Entraxe nervures (m)</Label><NumIn value={lv.nervures?.entraxe} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), entraxe: v })} w="w-full sm:w-[90px]" /></div>
                 <div><Label>b × h nerv. (m)</Label><div className="flex gap-1">
                   <NumIn value={lv.nervures?.b} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), b: v })} w="w-[60px]" />
                   <NumIn value={lv.nervures?.h} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), h: v })} w="w-[60px]" /></div></div>
-                <div><Label>Ép. table (m)</Label><NumIn value={lv.epDalle} onChange={(v) => upLevel(li, 'epDalle', v)} w="w-[80px]" /></div>
+                <div className="min-w-0"><Label>Ép. table (m)</Label><NumIn value={lv.epDalle} onChange={(v) => upLevel(li, 'epDalle', v)} w="w-full sm:w-[80px]" /></div>
               </>)}
               {levels.length > 1 && (
-                <button onClick={() => removeLevel(li)} className="text-muted hover:text-laterite ml-auto pb-2"><Trash2 size={15} /></button>
+                <button onClick={() => removeLevel(li)} className="col-span-2 justify-self-end text-muted hover:text-laterite sm:ml-auto sm:pb-2"><Trash2 size={15} /></button>
               )}
             </div>
 
