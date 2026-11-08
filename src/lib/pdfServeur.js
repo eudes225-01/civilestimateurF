@@ -7,7 +7,7 @@ import { fmtDate } from './format.js'
 import { METRES_COMPLETS } from './pdfLegacy.js'
 
 /** Modèle sérialisable du document (tout est déjà calculé : le serveur ne recalcule rien). */
-export function construireModele({ proj, totaux, brand, opts, dqe, sousDetail, materiaux }) {
+export function construireModele({ proj, totaux, brand, opts, dqe, materiaux }) {
   return {
     proj: { titre: proj.titre, mo: proj.mo, entreprise: proj.entreprise, ref: proj.ref, ville: proj.ville },
     brand: {
@@ -21,10 +21,6 @@ export function construireModele({ proj, totaux, brand, opts, dqe, sousDetail, m
       inclus: (dqe.inclus || []).map(({ des, u, q, inclusDans }) => ({ des, u, q, inclusDans })),
     },
     materiaux: (materiaux?.synthese || totaux.materiaux?.synthese || []).map(({ code, designation, unite, quantite, quantiteCommande, ouvrages }) => ({ code, designation, unite, quantite, quantiteCommande, ouvrages })),
-    sousDetail: sousDetail.map((s) => ({
-      n: s.n, des: s.des, u: s.u, composantes: s.composantes.map((c) => ({ lib: c.lib, montant: c.montant })),
-      deboursesSec: s.deboursesSec, majoration: s.majoration, puVente: s.puVente, q: s.q, montantTotal: s.montantTotal,
-    })),
     metres: METRES_COMPLETS
       .filter(([k]) => Math.round((+totaux[k] || 0) * 100) !== 0)
       .map(([k, lib, u]) => ({ lib, q: +totaux[k], u })),

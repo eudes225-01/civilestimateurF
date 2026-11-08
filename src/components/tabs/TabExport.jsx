@@ -5,7 +5,6 @@ import { Card, Button, SectionTitle, Label, Input, Badge } from '../ui/index.jsx
 import { montantsIncomplets, exportAutorise } from '../../lib/metre.js'
 import { construireDQE } from '../../lib/calcul.js'
 import ValidationExceptions from '../ValidationExceptions.jsx'
-import { buildSousDetail } from '../../lib/metre.js'
 import { fmtCFA, fmtDate } from '../../lib/format.js'
 import { pdfServeur, telecharger } from '../../lib/pdfServeur.js'
 import { exportPdfLegacy } from '../../lib/pdfLegacy.js'
@@ -32,7 +31,7 @@ const NIVEAUX_BLOQUANTS = ['bloquante', 'erreur', 'error', 'critique']
 export default function TabExport({ proj, totaux, prix, params, setParams, alertes = [], couverture, prixInfo }) {
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState('')
-  const [opts, setOpts] = useState({ pageGarde: true, sousDetail: true, metresComplets: true })
+  const [opts, setOpts] = useState({ pageGarde: true, metresComplets: true })
   const [brand, setBrand] = useState({
     color: '#1e2a78',
     logo: null,
@@ -45,7 +44,6 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
 
   const prixMap = Object.fromEntries(prix.map((p) => [p.code, p.pu]))
   const dqe = construireDQE(totaux, prixMap, params, couverture)
-  const sousDetail = buildSousDetail(dqe.lignes, prixMap, params.K || 1.3)
   // Une donnée « à confirmer » bloque l'export ; une valeur par défaut explicitement confirmée ne le bloque plus.
   // La trace de confirmation reste dans le projet : le PDF client n'en contient aucune.
   // Erreur ou donnée manquante : le PDF n'est pas généré et chaque cause est listée en rouge.
@@ -76,7 +74,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
     if (!autorise) return
     setLoading(true)
     setInfo('')
-    const ctx = { proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail, materiaux: totaux.materiaux, couverture }
+    const ctx = { proj, totaux, params, prixInfo, brand, opts, dqe, materiaux: totaux.materiaux, couverture }
     const nom = `BPU_DQE_${(proj.titre || 'projet').replace(/[^\w\-]+/g, '_')}_${fmtDate(new Date()).replace(/\//g, '-')}.pdf`
     try {
       // 1) Rendu HTML/CSS côté serveur (qualité maximale).
@@ -218,12 +216,6 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
             Inclure une page de garde
           </label>
           <label className="flex items-center gap-2.5">
-            <input type="checkbox" checked={opts.sousDetail}
-              onChange={(e) => setOpts({ ...opts, sousDetail: e.target.checked })}
-              className="w-4 h-4 accent-indigo" />
-            Inclure le sous-détail des prix unitaires
-          </label>
-          <label className="flex items-center gap-2.5">
             <input type="checkbox" checked={opts.metresComplets}
               onChange={(e) => setOpts({ ...opts, metresComplets: e.target.checked })}
               className="w-4 h-4 accent-indigo" />
@@ -264,7 +256,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
               opts.pageGarde && 'page de garde',
               'informations projet',
               'DQE',
-              opts.sousDetail && 'sous-détail des prix',
+              'DQE détaillé : unité, quantité, prix unitaire et prix total par poste',
               opts.metresComplets && 'métrés complets',
             ].filter(Boolean).join(' · ')}
           </p>

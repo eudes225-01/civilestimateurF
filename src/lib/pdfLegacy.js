@@ -17,6 +17,21 @@ const hexToRgb = (hex) => {
   return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [30, 42, 120]
 }
 
+const CHAPITRES_DQE = {
+  1: 'Terrassement', 2: 'Fondations', 3: 'Structure en élévation', 4: 'Planchers', 5: 'Maçonnerie',
+  6: 'Enduits et peinture', 7: 'Aciers', 8: 'Couverture', 9: 'Granulats', 10: 'Coffrage',
+  11: 'Plomberie et assainissement', 12: 'Électricité',
+}
+const regrouperParChapitre = (lignes) => {
+  const groupes = new Map()
+  for (const ligne of lignes) {
+    const n = Number.parseInt(String(ligne.n).split('.')[0], 10) || 0
+    if (!groupes.has(n)) groupes.set(n, { n, titre: CHAPITRES_DQE[n] || `Chapitre ${n}`, lignes: [] })
+    groupes.get(n).lignes.push(ligne)
+  }
+  return [...groupes.values()].sort((a, b) => a.n - b.n)
+}
+
 // Éclaircit/fonce une couleur RGB d'un facteur (-1 à 1)
 const shade = ([r, g, b], f) => {
   const adj = (c) => Math.round(f < 0 ? c * (1 + f) : c + (255 - c) * f)
@@ -66,7 +81,7 @@ export const METRES_COMPLETS = [
 ]
 
 /** Génère et télécharge le PDF dans le navigateur. Lève une erreur en cas d'échec. */
-export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, sousDetail }) {
+export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe }) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -212,15 +227,18 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, sousDeta
   drawHeaderBand('Devis Quantitatif Estimatif (DQE)')
   y = 30
   doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
-  doc.text(`Devis Quantitatif Estimatif — ${dqe.mode === 'decompose' ? 'prix décomposés' : 'prix composés'}`, M, y); y += 5
+  doc.text('Devis Quantitatif Estimatif', M, y); y += 5
+  const chapitres = regrouperParChapitre(dqe.lignes)
   autoTable(doc, {
     startY: y,
     margin: { left: M, right: M, bottom: 18 },
     theme: 'grid',
-    head: [['N°', 'Désignation', 'U', 'Qté', 'PU (FCFA)', 'Montant HT (FCFA)']],
-    body: dqe.lignes.flatMap((l) => [
-      [l.n, l.des, l.u, pdfNum(l.q, 2), pdfNum(l.pu, 0), pdfNum(l.montant, 0)],
-      ...(l.detail || []).map((d) => ['', `${d.lib || 'Détail'}${d.formule ? ` — ${d.formule}` : ''}${d.q || d.u ? ` = ${pdfNum(d.q, 2)} ${d.u || ''}` : ''}`, '', '', '', '']),
+    head: [['N°', 'Désignation des ouvrages', 'Unité', 'Qté', 'Prix U (FCFA)', 'Prix total (FCFA)']],
+    body: chapitres.flatMap((c) => [
+      [{ content: `${c.n}  ${c.titre}`, colSpan: 6, styles: { fontStyle: 'bold', fillColor: [208, 208, 208], textColor: 26, halign: 'left' } }],
+      ...c.lignes.map((l) => [l.n, l.des, l.u, pdfNum(l.q, 2), pdfNum(l.pu, 0), pdfNum(l.montant, 0)]),
+      [{ content: `Sous-total ${c.n} — ${c.titre}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [227, 227, 227], textColor: 26, halign: 'right' } },
+        { content: pdfNum(c.lignes.reduce((s, l) => s + l.montant, 0), 0), styles: { fontStyle: 'bold', fillColor: [227, 227, 227], textColor: 26, halign: 'right' } }],
     ]),
     foot: [
       ['', '', '', '', 'Total HT', pdfNum(dqe.ht, 0)],
@@ -228,15 +246,15 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, sousDeta
       ['', '', '', '', 'Total TTC', pdfNum(dqe.ttc, 0)],
     ],
     styles: { fontSize: 8.5, cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 }, overflow: 'linebreak', valign: 'middle' },
-    headStyles: { fillColor: [r, g, b], textColor: 255, fontStyle: 'bold', halign: 'center' },
+    headStyles: { fillColor: [227, 227, 227], textColor: 26, fontStyle: 'bold', halign: 'center' },
     footStyles: { fillColor: [243, 240, 233], textColor: 26, fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 13, halign: 'center' },
-      1: { cellWidth: 74 },
-      2: { cellWidth: 11, halign: 'center' },
-      3: { cellWidth: 22, halign: 'right' },
-      4: { cellWidth: 30, halign: 'right' },
-      5: { cellWidth: 36, halign: 'right' },
+      0: { cellWidth: 11, halign: 'center' },
+      1: { cellWidth: 75 },
+      2: { cellWidth: 14, halign: 'center' },
+      3: { cellWidth: 20, halign: 'right' },
+      4: { cellWidth: 28, halign: 'right' },
+      5: { cellWidth: 34, halign: 'right' },
     },
     didParseCell: (d) => {
       if (d.section === 'foot' && d.row.index === 2) {
@@ -246,66 +264,6 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, sousDeta
     },
     didDrawPage: () => drawHeaderBand('Devis Quantitatif Estimatif (DQE) — suite'),
   })
-
-  // ════════════════════════════════════════════════════════════
-  // PAGES — SOUS-DÉTAIL DES PRIX UNITAIRES
-  // ════════════════════════════════════════════════════════════
-  if (opts.sousDetail && sousDetail.length) {
-    doc.addPage()
-    drawHeaderBand('Sous-détail des prix unitaires')
-    y = 30
-    doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
-    doc.text('Sous-détail des prix unitaires (déboursé sec)', M, y); y += 4
-    doc.setFontSize(7.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120)
-    doc.text("Décomposition du déboursé sec et calcul du prix de vente par poste.", M, y)
-    y += 6
-
-    sousDetail.forEach((sd) => {
-      if (y > H - 50) { doc.addPage(); drawHeaderBand('Sous-détail des prix unitaires — suite'); y = 30 }
-
-      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
-      doc.text(`${sd.n} — ${sd.des} (${sd.u})`, M, y)
-      y += 1
-
-      autoTable(doc, {
-        startY: y + 2,
-        margin: { left: M, right: M, bottom: 18 },
-        theme: 'grid',
-        head: [['Composante', 'Part', 'Calcul (FCFA)', `FCFA / ${sd.u}`]],
-        body: [
-          ...sd.composantes.map((c) => [
-            c.lib,
-            sd.deboursesSec > 0 ? `${pdfNum((c.montant / sd.deboursesSec) * 100, 1)} %` : '0,0 %',
-            `${pdfNum(sd.deboursesSec, 0)} × ${sd.deboursesSec > 0 ? pdfNum((c.montant / sd.deboursesSec) * 100, 1) : '0,0'} % = ${pdfNum(c.montant, 0)}`,
-            pdfNum(c.montant, 0),
-          ]),
-          ['Déboursé sec', '100 %', '', pdfNum(sd.deboursesSec, 0)],
-          ['Majoration', '—', '', `+ ${pdfNum(sd.majoration, 0)}`],
-          ['Prix de vente unitaire', '—', `${pdfNum(sd.deboursesSec, 0)} + ${pdfNum(sd.majoration, 0)}`, `${pdfNum(sd.puVente, 0)} FCFA`],
-          ['Quantité DQE', '—', '', `${pdfNum(sd.q, 2)} ${sd.u}`],
-          ['Montant HT du poste', '—', `${pdfNum(sd.q, 2)} × ${pdfNum(sd.puVente, 0)}`, `${pdfNum(sd.montantTotal || (sd.q || 0) * sd.puVente, 0)} FCFA`],
-        ],
-        styles: { fontSize: 8, cellPadding: { top: 1.6, right: 2.5, bottom: 1.6, left: 2.5 } },
-        headStyles: { fillColor: [110, 110, 110], textColor: 255, fontStyle: 'bold' },
-        columnStyles: {
-          0: { cellWidth: 52 },
-          1: { cellWidth: 20, halign: 'right' },
-          2: { cellWidth: 68 },
-          3: { cellWidth: 32, halign: 'right' },
-        },
-        didParseCell: (d) => {
-          if (d.section === 'body' && d.row.index === sd.composantes.length) {
-            d.cell.styles.fillColor = [243, 240, 233]; d.cell.styles.fontStyle = 'bold'
-          }
-          if (d.section === 'body' && d.row.index === sd.composantes.length + 2) {
-            d.cell.styles.fillColor = [r, g, b]; d.cell.styles.textColor = 255; d.cell.styles.fontStyle = 'bold'
-          }
-        },
-        didDrawPage: () => drawHeaderBand('Sous-détail des prix unitaires — suite'),
-      })
-      y = doc.lastAutoTable.finalY + 7
-    })
-  }
 
   // ════════════════════════════════════════════════════════════
   // PAGE — RÉCAPITULATIF COMPLET DES QUANTITÉS (MÉTRÉS)
