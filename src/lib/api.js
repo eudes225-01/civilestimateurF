@@ -50,8 +50,14 @@ export const EVT_CST = 'cst:maj'
  * Lecture de plans (facturée en crédits CST au nombre de tokens traités).
  * `debut` : premier appel d'une lecture → le serveur exige alors le solde minimum de lecture.
  */
-async function analysePlan(messages, { debut = false } = {}) {
-  const res = await call('POST', '/api/analyse-plan', { messages, debutLecture: !!debut })
+async function analysePlan(messages, { debut = false, lectureId = '' } = {}) {
+  const res = await call('POST', '/api/analyse-plan', { messages, debutLecture: !!debut, lectureId })
+  if (res?.cst && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVT_CST, { detail: res.cst }))
+  return res
+}
+
+async function finaliserLecture(lectureId) {
+  const res = await call('POST', '/api/analyse-plan/finaliser', { lectureId })
   if (res?.cst && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVT_CST, { detail: res.cst }))
   return res
 }
@@ -62,6 +68,7 @@ export const api = {
   prix:        ()       => call('GET',  '/api/prix'),
   calcul:      (body)   => call('POST', '/api/calcul', body),
   analysePlan,
+  finaliserLecture,
   // Achat de crédits CST (FedaPay) : init reçoit le forfait choisi et renvoie l'URL de paiement ; verify confirme un
   // paiement au retour du navigateur. Le paiement exige l'acceptation explicite des conditions : le serveur en garde la preuve.
   fedapayInit:   (body) => call('POST', '/api/fedapay/init', body),

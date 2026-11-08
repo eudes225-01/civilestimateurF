@@ -2,13 +2,13 @@
 // Politiques d'utilisation — source unique côté interface (résumé de l'écran d'accueil + conditions complètes).
 // Le backend sert le même texte sur GET /api/politiques (civilestimateur-backend/src/routes/politiques.js) :
 // à modifier ensemble, en incrémentant POLITIQUES_VERSION.
-export const POLITIQUES_VERSION = "3.2"
+export const POLITIQUES_VERSION = "3.3"
 export const POLITIQUES_DATE = "8 novembre 2026"
 
 export const POLITIQUES_RESUME = [
   "Vos quantités et prix sont calculés avec le Guide du métré et le barème RPR : ce sont des estimations sérieuses, à valider par le professionnel qui signe l'offre (elles ne remplacent ni le CCTP, ni un métré d'exécution, ni une étude géotechnique).",
   "Gratuit avec un compte : projets, niveaux & métré, prix modifiables, DQE complet et export PDF professionnel. Seule la lecture automatique des plans consomme des crédits CST.",
-  "Les crédits CST s'achètent par forfaits (2 500, 5 000, 10 000 ou 20 000 FCFA, via FedaPay) et se consomment selon le nombre de tokens traités. Pas d'abonnement : vous rechargez quand vous voulez. Solde minimum de 2 500 CST pour démarrer une lecture.",
+  "Les crédits CST s'achètent par forfaits (2 500, 5 000, 10 000 ou 20 000 FCFA, via FedaPay). Une lecture complète réussie coûte au minimum 1 197 CST, puis davantage si les tokens réels le justifient. Pas d'abonnement : vous rechargez quand vous voulez.",
   "Les calculs suivent des formules publiques et des coefficients (K, prix) que vous ajustez. Les valeurs lues sur vos plans sont toujours à vérifier avant le calcul.",
   "Vos données ne sont ni revendues ni partagées. Les fichiers de plans ne sont pas conservés sur nos serveurs, et vous pouvez supprimer votre compte à tout moment.",
   "Les documents générés vous appartiennent. L'extraction massive ou la revente de la base de prix RPR est interdite."
@@ -33,7 +33,7 @@ export const POLITIQUES_SECTIONS = [
   },
   {
     "t": "5. Crédits CST et paiement",
-    "c": "Les crédits CST s'achètent par forfaits (2 500, 5 000, 10 000 ou 20 000 FCFA) : 1 FCFA payé donne 1 CST. Il n'y a ni abonnement ni renouvellement automatique : vous rechargez quand vous le souhaitez. Les crédits achetés à partir du 1er décembre 2026 sont valables un mois à compter du dernier achat soumis à expiration. Sans nouvelle recharge, seuls les crédits soumis à expiration encore disponibles sont supprimés à l'échéance (un rappel est envoyé par e-mail quelques jours avant). Les crédits présents avant le 1er décembre 2026 et ceux acquis avant cette date restent protégés, y compris après une recharge ultérieure ; les consommations utilisent d'abord les crédits soumis à expiration. Chaque appel de lecture consomme des CST selon le nombre de tokens réellement traités par le service d'analyse (contenu lu et texte produit), au tarif affiché dans la fenêtre d'achat. Un solde minimum de 2 500 CST est exigé pour démarrer une lecture ; seul le coût réellement consommé est débité, et le solde ne peut jamais devenir négatif. Après chaque paiement, vous recevez par e-mail une confirmation accompagnée d'un PDF qui reproduit l'intégralité de ces conditions ; vous pouvez à tout moment vous la faire renvoyer depuis le menu de votre compte. Le paiement est traité par FedaPay (Mobile Money ou carte) : nous ne stockons aucune donnée bancaire."
+    "c": "Les crédits CST s'achètent par forfaits (2 500, 5 000, 10 000 ou 20 000 FCFA) : 1 FCFA payé donne 1 CST. Il n'y a ni abonnement ni renouvellement automatique : vous rechargez quand vous le souhaitez. Les crédits achetés à partir du 1er décembre 2026 sont valables un mois à compter du dernier achat soumis à expiration. Sans nouvelle recharge, seuls les crédits soumis à expiration encore disponibles sont supprimés à l'échéance (un rappel est envoyé par e-mail quelques jours avant). Les crédits présents avant le 1er décembre 2026 et ceux acquis avant cette date restent protégés, y compris après une recharge ultérieure ; les consommations utilisent d'abord les crédits soumis à expiration. Une lecture complète réussie est facturée au minimum 1 197 CST. Si le calcul fondé sur les tokens réellement traités dépasse ce montant, le coût réel supérieur est facturé. Le poids des documents peut augmenter le nombre de tokens traités. Un solde d'au moins 1 197 CST est requis pour démarrer une lecture ; les appels d'analyse qui échouent ne sont pas facturés. Le solde ne peut jamais devenir négatif. Après chaque paiement, vous recevez par e-mail une confirmation accompagnée d'un PDF qui reproduit l'intégralité de ces conditions ; vous pouvez à tout moment vous la faire renvoyer depuis le menu de votre compte. Le paiement est traité par FedaPay (Mobile Money ou carte) : nous ne stockons aucune donnée bancaire."
   },
   {
     "t": "6. Problèmes de paiement et remboursement",

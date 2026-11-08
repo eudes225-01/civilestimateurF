@@ -345,13 +345,15 @@ export function parseJSON(text) {
 
 // Lecture facturée en crédits CST : le PREMIER appel d'une lecture porte le drapeau « début » (solde minimum exigé).
 let premierAppel = true
-const nouvelleLecture = () => { premierAppel = true }
+let idLecture = ''
+let appelsReussis = 0
+const nouvelleLecture = () => { premierAppel = true; idLecture = crypto.randomUUID(); appelsReussis = 0 }
 
 async function callModel(messages) {
   const debut = premierAppel
   let res
   try {
-    res = await api.analysePlan(messages, { debut })
+    res = await api.analysePlan(messages, { debut, lectureId: idLecture })
   } catch (e) {
     if (e?.error === 'credits_insuffisants') throw Object.assign(new Error(messageCreditsInsuffisants(e, debut)), { code: 'credits_insuffisants' })
     if (ERRORS[e?.error]) throw Object.assign(new Error(ERRORS[e.error]), { code: e.error })
@@ -360,7 +362,16 @@ async function callModel(messages) {
   premierAppel = false
   if (!res) throw Object.assign(new Error(ERRORS.offline), { code: 'offline' })
   if (res.error) throw Object.assign(new Error(ERRORS[res.error] || `Erreur : ${res.error}`), { code: res.error })
+  appelsReussis++
   return (res.content || []).map((b) => b.text || '').join('\n')
+}
+
+async function appliquerPlancherLecture() {
+  if (appelsReussis === 0) return true
+  for (let essai = 0; essai < 2; essai++) {
+    try { await api.finaliserLecture(idLecture); return true } catch {}
+  }
+  return false
 }
 
 const mediaJpeg = (b64) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } })
@@ -501,6 +512,7 @@ export async function analyzePlans(depots = {}, opts = {}) {
   }
   // Maquette refusée mais d'autres plans lus : le guide reste disponible à l'écran de vérification.
   if (guideIFC) ex.guideIFC = guideIFC
+  if (!(await appliquerPlancherLecture())) return { ok: false, code: 'credits', message: 'La lecture est terminée, mais la facturation CST n’a pas pu être finalisée. Actualisez votre solde avant une nouvelle lecture.' }
   return { ok: true, data: ex }
 }
 
@@ -520,6 +532,7 @@ export async function analyzeNiveau(file) {
     const data = parseJSON(await callModel([{ role: 'user', content: [mediaJpeg(loc.b64), { type: 'text', text: PROMPTS.plan }] }]))
     data.incertitudes = Array.isArray(data.incertitudes) ? data.incertitudes : []
     if (!(data.pieces?.length || data.murs?.length)) return { ok: false, code: 'empty', message: 'Aucune pièce ni mur détecté sur ce plan de niveau.' }
+    if (!(await appliquerPlancherLecture())) return { ok: false, code: 'credits', message: 'La lecture est terminée, mais la facturation CST n’a pas pu être finalisée. Actualisez votre solde avant une nouvelle lecture.' }
     return { ok: true, data }
   } catch (e) {
     if (e.code) return { ok: false, code: e.code, message: e.message }

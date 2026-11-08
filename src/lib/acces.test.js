@@ -81,17 +81,18 @@ test('plus aucune mention d’abonnement ni de Premium dans l’interface (hors 
 
 test('le premier appel d’une lecture porte le drapeau « début » (solde minimum exigé par le serveur)', () => {
   const src = lire('./planreader.js')
-  assert.match(src, /api\.analysePlan\(messages, \{ debut \}\)/)
+  assert.match(src, /api\.analysePlan\(messages, \{ debut, lectureId: idLecture \}\)/)
+  assert.match(src, /api\.finaliserLecture\(idLecture\)/)
   assert.equal((src.match(/nouvelleLecture\(\)/g) || []).length, 2) // analyzePlans + analyzeNiveau
   const api = lire('./api.js')
   assert.match(api, /debutLecture: !!debut/)
   assert.match(api, /'\/api\/credits\/confirmation\/renvoyer'/)
 })
 
-test('conditions : version 3.2, crédits CST, forfaits et solde minimum', () => {
+test('conditions : version 3.3, crédits CST, forfaits et solde minimum', () => {
   const src = lire('../data/politiques.js')
-  assert.match(src, /POLITIQUES_VERSION = "3\.2"/)
+  assert.match(src, /POLITIQUES_VERSION = "3\.3"/)
   assert.match(src, /2 500, 5 000, 10 000 ou 20 000 FCFA/)
-  assert.match(src, /solde minimum de 2 500 CST/)
+  assert.match(src, /solde d'au moins 1 197 CST/)
   assert.doesNotMatch(src, /Premium|abonnement Premium|rappel d'échéance/)
 })

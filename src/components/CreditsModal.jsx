@@ -132,7 +132,7 @@ export default function CreditsModal({ ouvert, onFermer, credits }) {
           <span>
             J'ai lu et j'accepte les{' '}
             <button type="button" className="underline text-indigo font-semibold" onClick={(e) => { e.preventDefault(); setConditions(true) }}>conditions d'utilisation</button>{' '}
-            (version {POLITIQUES_VERSION}). Paiement unique, sans abonnement ; les crédits achetés à partir du 1er décembre 2026 expirent un mois après le dernier achat soumis à expiration, et les crédits antérieurs restent protégés même après une recharge (rappel par e-mail avant l'échéance) ; les crédits achetés ne sont pas remboursables, sauf paiement débité sans ajout de crédits ou double paiement.
+            (version {POLITIQUES_VERSION}). Une lecture réussie coûte au minimum 1 197 CST ; si les tokens réellement traités dépassent ce montant, leur coût réel s'applique. Les crédits achetés à partir du 1er décembre 2026 expirent un mois après le dernier achat soumis à expiration, et les crédits antérieurs restent protégés même après une recharge (rappel par e-mail avant l'échéance).
           </span>
         </label>
         {verification && <p role="status" className="mt-4 text-[13px] text-muted inline-flex items-center gap-2"><Loader size={14} className="animate-spin" /> Confirmation de votre paiement…</p>}
