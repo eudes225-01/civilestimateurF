@@ -88,9 +88,9 @@ test('le premier appel d’une lecture porte le drapeau « début » (solde mini
   assert.match(api, /'\/api\/credits\/confirmation\/renvoyer'/)
 })
 
-test('conditions : version 3.0, crédits CST, forfaits et solde minimum', () => {
+test('conditions : version 3.2, crédits CST, forfaits et solde minimum', () => {
   const src = lire('../data/politiques.js')
-  assert.match(src, /POLITIQUES_VERSION = "3\.0"/)
+  assert.match(src, /POLITIQUES_VERSION = "3\.2"/)
   assert.match(src, /2 500, 5 000, 10 000 ou 20 000 FCFA/)
   assert.match(src, /solde minimum de 2 500 CST/)
   assert.doesNotMatch(src, /Premium|abonnement Premium|rappel d'échéance/)
