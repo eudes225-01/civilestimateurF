@@ -40,9 +40,9 @@
 
     <style>
       :root{color-scheme:light}
-      /* Écran d'intro : animation du logo (affiché une fois par session, jamais pour les robots) */
+      /* Écran d'intro : animation complète du logo à chaque chargement du site, jamais pour les robots. */
       #splash{display:none;position:fixed;top:0;left:0;width:100%;height:100%;min-height:100vh;z-index:99999;background:linear-gradient(125deg,#1e2a78 0%,#3a2a9e 26%,#c0391b 62%,#e0532f 80%,#f6a823 100%);background-size:220% 220%;animation:s-drift 6s ease-in-out infinite alternate;align-items:center;justify-content:center;flex-direction:column;gap:20px;transition:opacity .55s ease,visibility .55s ease}
-      .splash-on #splash{display:flex;animation:splash-safety 0s linear 7s forwards}
+      .splash-on #splash{display:flex;animation:s-drift 3s ease-in-out 0s 1 alternate forwards,splash-safety 0s linear 10s forwards}
       #splash.splash-out{opacity:0;visibility:hidden}
       @keyframes splash-safety{to{opacity:0;visibility:hidden}}
       #splash .s-logo{position:relative;width:120px;height:120px;display:grid;place-items:center}
@@ -70,10 +70,8 @@
     <script>
       (function () {
         var bot = /bot|crawl|spider|lighthouse|google|headless/i.test(navigator.userAgent);
-        var vu = false;
-        try { vu = sessionStorage.getItem('splash-vu') === '1'; sessionStorage.setItem('splash-vu', '1'); } catch (e) {}
-        if (bot || vu) return;
-        var t0 = Date.now(), MIN = 2500;
+        if (bot) return;
+        var t0 = Date.now(), MIN = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 450 : 3200;
         document.documentElement.className += ' splash-on';
         window.__hideSplash = function () {
           var el = document.getElementById('splash'); if (!el) return;
