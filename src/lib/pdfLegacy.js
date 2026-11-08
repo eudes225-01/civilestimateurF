@@ -1,7 +1,7 @@
 // src/lib/pdfLegacy.js
 // Export PDF « local » (jsPDF) : généré entièrement dans le navigateur.
 // Sert de secours quand le serveur de rendu HTML/CSS est indisponible (voir TabExport.jsx).
-import { fmtDate, fmtMois } from './format.js'
+import { fmtDate } from './format.js'
 
 // Formatage des nombres pour le PDF : espace ASCII comme séparateur de milliers
 // (évite l'espace fine insécable U+202F que les polices PDF standard n'affichent pas).
@@ -66,7 +66,7 @@ export const METRES_COMPLETS = [
 ]
 
 /** Génère et télécharge le PDF dans le navigateur. Lève une erreur en cas d'échec. */
-export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail }) {
+export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, sousDetail }) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -75,7 +75,7 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
   const [r, g, b] = hexToRgb(brand.color)
   const [rDark, gDark, bDark] = shade([r, g, b], -0.35)
   const today = fmtDate(new Date())
-  const nomEntreprise = proj.entreprise || 'Entreprise non renseignée'
+  const nomEntreprise = proj.entreprise || ''
 
   const drawHeaderBand = (titre) => {
     doc.setFillColor(r, g, b)
@@ -95,20 +95,6 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
     doc.text(titre, M, 15.5)
     doc.setFontSize(7)
     doc.text(`Édité le ${today}`, W - M - (brand.logo ? 21 : 0), 19, { align: 'right' })
-  }
-
-  const drawFooterLegal = () => {
-    doc.setDrawColor(225, 220, 212)
-    doc.line(M, H - 14, W - M, H - 14)
-    doc.setFontSize(6.5); doc.setTextColor(140, 134, 128); doc.setFont('helvetica', 'normal')
-    const legal = [
-      brand.rccm && `RCCM : ${brand.rccm}`,
-      brand.ifu && `IFU : ${brand.ifu}`,
-      brand.telephone && `Tél. : ${brand.telephone}`,
-      brand.email && `E-mail : ${brand.email}`,
-    ].filter(Boolean).join('   ·   ')
-    if (legal) doc.text(legal, M, H - 10)
-    if (brand.adresse) doc.text(brand.adresse, M, H - 6.5)
   }
 
   // ════════════════════════════════════════════════════════════
@@ -189,15 +175,6 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
     doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120)
     doc.text(`Document édité le ${today}`, W / 2, cy, { align: 'center' })
 
-    const idLines = [
-      brand.adresse && brand.adresse,
-      [brand.telephone, brand.email].filter(Boolean).join('   ·   '),
-      [brand.rccm && `RCCM ${brand.rccm}`, brand.ifu && `IFU ${brand.ifu}`].filter(Boolean).join('   ·   '),
-    ].filter(Boolean)
-    let idY = H - 24
-    doc.setFontSize(7.5); doc.setTextColor(140, 134, 128)
-    idLines.forEach((l) => { doc.text(l, W / 2, idY, { align: 'center' }); idY += 4 })
-
     doc.addPage()
   }
 
@@ -214,8 +191,6 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
     proj.entreprise && ['Entreprise / BET', proj.entreprise],
     proj.ref && ['Référence', proj.ref],
     proj.ville && ['Localisation', proj.ville],
-    totaux.toiture?.lab && ['Type de toiture', totaux.toiture.lab],
-    ['Coefficient de majoration (K)', String(params.K || 1.3)],
   ].filter(Boolean)
 
   doc.setFontSize(10.5); doc.setFont('helvetica', 'bold')
@@ -230,31 +205,6 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
   })
   y += 4
 
-  { // identité de l'entreprise
-    doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
-    doc.text("Identité de l'entreprise", M, y); y += 6
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal')
-    const idEnt = [
-      brand.adresse && ['Adresse', brand.adresse],
-      brand.telephone && ['Téléphone', brand.telephone],
-      brand.email && ['E-mail', brand.email],
-      brand.rccm && ['RCCM', brand.rccm],
-      brand.ifu && ['IFU', brand.ifu],
-    ].filter(Boolean)
-    if (idEnt.length) {
-      idEnt.forEach(([k, v]) => {
-        doc.setTextColor(110, 110, 110); doc.text(`${k} :`, M, y)
-        doc.setTextColor(26, 26, 26); doc.text(String(v), M + 40, y)
-        y += 5.5
-      })
-    } else {
-      doc.setTextColor(150, 150, 150)
-      doc.text('Coordonnées non renseignées.', M, y); y += 5.5
-    }
-  }
-
-  drawFooterLegal()
-
   // ════════════════════════════════════════════════════════════
   // PAGE — DQE (Devis Quantitatif Estimatif)
   // ════════════════════════════════════════════════════════════
@@ -263,20 +213,17 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
   y = 30
   doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
   doc.text(`Devis Quantitatif Estimatif — ${dqe.mode === 'decompose' ? 'prix décomposés' : 'prix composés'}`, M, y); y += 5
-  if (dqe.statut && dqe.statut !== 'complet') {
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 80, 0)
-    doc.text(doc.splitTextToSize(`Montant INDICATIF : ${(dqe.raisonsIncomplet || []).join(' ; ')}.`, 210 - 2 * M), M, y); y += 8
-    doc.setTextColor(26, 26, 26)
-  }
-
   autoTable(doc, {
     startY: y,
     margin: { left: M, right: M, bottom: 18 },
     theme: 'grid',
     head: [['N°', 'Désignation', 'U', 'Qté', 'PU (FCFA)', 'Montant HT (FCFA)']],
-    body: dqe.lignes.map((l) => [l.n, l.des, l.u, pdfNum(l.q, 2), pdfNum(l.pu, 0), pdfNum(l.montant, 0)]),
+    body: dqe.lignes.flatMap((l) => [
+      [l.n, l.des, l.u, pdfNum(l.q, 2), pdfNum(l.pu, 0), pdfNum(l.montant, 0)],
+      ...(l.detail || []).map((d) => ['', `${d.lib || 'Détail'}${d.formule ? ` — ${d.formule}` : ''}${d.q || d.u ? ` = ${pdfNum(d.q, 2)} ${d.u || ''}` : ''}`, '', '', '', '']),
+    ]),
     foot: [
-      ['', '', '', '', dqe.statut === 'complet' ? 'Total HT' : 'Total HT indicatif', pdfNum(dqe.ht, 0)],
+      ['', '', '', '', 'Total HT', pdfNum(dqe.ht, 0)],
       ['', '', '', '', 'TVA 18 %', pdfNum(dqe.tva, 0)],
       ['', '', '', '', 'Total TTC', pdfNum(dqe.ttc, 0)],
     ],
@@ -300,32 +247,6 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
     didDrawPage: () => drawHeaderBand('Devis Quantitatif Estimatif (DQE) — suite'),
   })
 
-  // Périmètre couvert (B2) + points à vérifier (A7)
-  let yAp = doc.lastAutoTable.finalY + 5
-  const blocInfo = (titre, lignesTxt, fill, txtCol) => {
-    const largeur = W - 2 * M
-    const corps = lignesTxt.flatMap((t) => doc.splitTextToSize(t, largeur - 8))
-    const h = 7 + corps.length * 3.6
-    if (yAp + h > H - 18) { doc.addPage(); drawHeaderBand('Devis Quantitatif Estimatif (DQE) — suite'); yAp = 30 }
-    doc.setFillColor(...fill)
-    doc.roundedRect(M, yAp, largeur, h, 1.5, 1.5, 'F')
-    doc.setFontSize(7.8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...txtCol)
-    doc.text(titre, M + 4, yAp + 4.6)
-    doc.setFont('helvetica', 'normal')
-    doc.text(corps, M + 4, yAp + 8.6)
-    yAp += h + 3.5
-  }
-  blocInfo('PÉRIMÈTRE DU DEVIS', [
-    'DQE gros œuvre (terrassement → couverture). HORS SECOND ŒUVRE : assainissement, étanchéité détaillée,',
-    'revêtements, faux plafonds, plomberie, électricité, menuiseries. Le total ci-dessus ne représente pas le coût complet du projet.',
-  ], [232, 236, 250], [30, 42, 120])
-  blocInfo('NATURE DES RÉSULTATS', [
-    "Estimation établie à partir des dimensions saisies et du barème indiqué.",
-    "Elle ne remplace ni un métré d'exécution, ni une étude technique, ni les prix réels du marché :",
-    "à valider par le professionnel qui engage l'offre.",
-  ], [243, 240, 233], [90, 90, 90])
-  drawFooterLegal()
-
   // ════════════════════════════════════════════════════════════
   // PAGES — SOUS-DÉTAIL DES PRIX UNITAIRES
   // ════════════════════════════════════════════════════════════
@@ -336,7 +257,7 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
     doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
     doc.text('Sous-détail des prix unitaires (déboursé sec)', M, y); y += 4
     doc.setFontSize(7.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120)
-    doc.text("Décomposition matériaux / main d'œuvre / matériel, avant majoration K (aléas, frais généraux, bénéfice).", M, y)
+    doc.text("Décomposition du déboursé sec et calcul du prix de vente par poste.", M, y)
     y += 6
 
     sousDetail.forEach((sd) => {
@@ -350,22 +271,27 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
         startY: y + 2,
         margin: { left: M, right: M, bottom: 18 },
         theme: 'grid',
-        head: [['Composante', 'Montant (FCFA)', '% déboursé']],
+        head: [['Composante', 'Part', 'Calcul (FCFA)', `FCFA / ${sd.u}`]],
         body: [
           ...sd.composantes.map((c) => [
-            c.lib, pdfNum(c.montant, 0),
+            c.lib,
             sd.deboursesSec > 0 ? `${pdfNum((c.montant / sd.deboursesSec) * 100, 1)} %` : '0,0 %',
+            `${pdfNum(sd.deboursesSec, 0)} × ${sd.deboursesSec > 0 ? pdfNum((c.montant / sd.deboursesSec) * 100, 1) : '0,0'} % = ${pdfNum(c.montant, 0)}`,
+            pdfNum(c.montant, 0),
           ]),
-          ['Déboursé sec', pdfNum(sd.deboursesSec, 0), '100 %'],
-          [`Majoration (K = ${sd.coeffK})`, `+ ${pdfNum(sd.majoration, 0)}`, '—'],
-          ['Prix de vente unitaire', pdfNum(sd.puVente, 0), '—'],
+          ['Déboursé sec', '100 %', '', pdfNum(sd.deboursesSec, 0)],
+          ['Majoration', '—', '', `+ ${pdfNum(sd.majoration, 0)}`],
+          ['Prix de vente unitaire', '—', `${pdfNum(sd.deboursesSec, 0)} + ${pdfNum(sd.majoration, 0)}`, `${pdfNum(sd.puVente, 0)} FCFA`],
+          ['Quantité DQE', '—', '', `${pdfNum(sd.q, 2)} ${sd.u}`],
+          ['Montant HT du poste', '—', `${pdfNum(sd.q, 2)} × ${pdfNum(sd.puVente, 0)}`, `${pdfNum(sd.montantTotal || (sd.q || 0) * sd.puVente, 0)} FCFA`],
         ],
         styles: { fontSize: 8, cellPadding: { top: 1.6, right: 2.5, bottom: 1.6, left: 2.5 } },
         headStyles: { fillColor: [110, 110, 110], textColor: 255, fontStyle: 'bold' },
         columnStyles: {
-          0: { cellWidth: 96 },
-          1: { cellWidth: 46, halign: 'right' },
-          2: { cellWidth: 30, halign: 'right' },
+          0: { cellWidth: 52 },
+          1: { cellWidth: 20, halign: 'right' },
+          2: { cellWidth: 68 },
+          3: { cellWidth: 32, halign: 'right' },
         },
         didParseCell: (d) => {
           if (d.section === 'body' && d.row.index === sd.composantes.length) {
@@ -379,7 +305,6 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
       })
       y = doc.lastAutoTable.finalY + 7
     })
-    drawFooterLegal()
   }
 
   // ════════════════════════════════════════════════════════════
@@ -409,7 +334,6 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
       },
       didDrawPage: () => drawHeaderBand('Récapitulatif complet des quantités (métrés) — suite'),
     })
-    drawFooterLegal()
   }
 
   // ════════════════════════════════════════════════════════════
@@ -419,9 +343,9 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     if (opts.pageGarde && i === 1) continue
-    doc.setFontSize(7); doc.setTextColor(150, 150, 150)
-    if (opts.pagination) doc.text(`Page ${i} / ${pageCount}`, W - M, H - 3, { align: 'right' })
-    doc.text(`Résultats indicatifs — ${prixInfo?.version || 'RPR'}${prixInfo?.date ? ` (${fmtMois(prixInfo.date)})` : ''}`, M, H - 3)
+    doc.setFontSize(6.5); doc.setTextColor(120, 120, 120)
+    doc.text('Résultats indicatifs — barème RPR 26.2 (mars 2026) — prix décomposés', M, H - 3)
+    doc.text(`${i} / ${pageCount}`, W - M, H - 3, { align: 'right' })
   }
 
   const name = `BPU_DQE_${(proj.titre || 'projet').replace(/[^\w\-]+/g, '_')}_${today.replace(/\//g, '-')}.pdf`

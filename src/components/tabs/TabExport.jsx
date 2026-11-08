@@ -1,6 +1,6 @@
 // src/components/tabs/TabExport.jsx
 import React, { useState, useRef } from 'react'
-import { FileDown, Loader, Image as ImageIcon, X, Palette, BadgeCheck, MapPin, Phone, Mail, Plus, AlertOctagon } from 'lucide-react'
+import { FileDown, Loader, Image as ImageIcon, X, Palette, Plus, AlertOctagon } from 'lucide-react'
 import { Card, Button, SectionTitle, Label, Input, Badge } from '../ui/index.jsx'
 import { montantsIncomplets, exportAutorise } from '../../lib/metre.js'
 import { construireDQE } from '../../lib/calcul.js'
@@ -32,17 +32,12 @@ const NIVEAUX_BLOQUANTS = ['bloquante', 'erreur', 'error', 'critique']
 export default function TabExport({ proj, totaux, prix, params, setParams, alertes = [], couverture, prixInfo }) {
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState('')
-  const [opts, setOpts] = useState({ pageGarde: true, sousDetail: true, metresComplets: true, pagination: true })
+  const [opts, setOpts] = useState({ pageGarde: true, sousDetail: true, metresComplets: true })
   const [brand, setBrand] = useState({
     color: '#1e2a78',
     logo: null,
     logoName: '',
     slogan: '',
-    telephone: '',
-    email: '',
-    adresse: '',
-    rccm: '',
-    ifu: '',
   })
   const logoRef = useRef(null)
   const [plusCouleurs, setPlusCouleurs] = useState(false)
@@ -123,7 +118,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
           {'Personnaliser le document'}
         </SectionTitle>
         <p className="text-[13px] text-muted mb-4">
-          {'Donnez au PDF votre image professionnelle : logo, couleur de marque et mentions légales apparaîtront sur la page de garde et en en-tête de chaque page.'}
+          {'Personnalisez la présentation avec votre logo, votre couleur et un sous-titre.'}
         </p>
 
         {/* Logo */}
@@ -210,46 +205,6 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
             placeholder={'Ex. : Métré & Devis Quantitatif Estimatif'} />
         </div>
 
-        {/* Coordonnées */}
-        <div className="mt-4">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-muted mb-2 flex items-center gap-1.5">
-            <BadgeCheck size={13} /> {'Mentions professionnelles (page de garde)'}
-          </p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label><span className="inline-flex items-center gap-1.5"><Phone size={12} /> Téléphone</span></Label>
-              <Input value={brand.telephone} onChange={(e) => setBrand((b) => ({ ...b, telephone: e.target.value }))}
-                placeholder="Ex. : +229 …" />
-            </div>
-            <div>
-              <Label><span className="inline-flex items-center gap-1.5"><Mail size={12} /> E-mail</span></Label>
-              <Input value={brand.email} onChange={(e) => setBrand((b) => ({ ...b, email: e.target.value }))}
-                placeholder={'Ex. : contact@entreprise.bj'} />
-            </div>
-            <div className="sm:col-span-2">
-              <Label><span className="inline-flex items-center gap-1.5"><MapPin size={12} /> {'Adresse / siège'}</span></Label>
-              <Input value={brand.adresse} onChange={(e) => setBrand((b) => ({ ...b, adresse: e.target.value }))}
-                placeholder={'Ex. : Quartier, ville, pays'} />
-            </div>
-            {(
-              <>
-                <div>
-                  <Label>N° RCCM</Label>
-                  <Input value={brand.rccm} onChange={(e) => setBrand((b) => ({ ...b, rccm: e.target.value }))}
-                    placeholder="Ex. : RB/COT/…" />
-                </div>
-                <div>
-                  <Label>N° IFU</Label>
-                  <Input value={brand.ifu} onChange={(e) => setBrand((b) => ({ ...b, ifu: e.target.value }))}
-                    placeholder="Ex. : 3 2026 …" />
-                </div>
-              </>
-            )}
-          </div>
-          <p className="text-[12px] text-muted mt-2">
-            {"Ces informations renforcent le caractère professionnel du document remis au client ou au maître d'ouvrage."}
-          </p>
-        </div>
       </Card>
       {/* ── Options & génération ── */}
       <Card className="p-5" accent="jade">
@@ -273,12 +228,6 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
               onChange={(e) => setOpts({ ...opts, metresComplets: e.target.checked })}
               className="w-4 h-4 accent-indigo" />
             Inclure le récapitulatif complet des métrés
-          </label>
-          <label className="flex items-center gap-2.5">
-            <input type="checkbox" checked={opts.pagination}
-              onChange={(e) => setOpts({ ...opts, pagination: e.target.checked })}
-              className="w-4 h-4 accent-indigo" />
-            Numérotation des pages
           </label>
         </div>
 
