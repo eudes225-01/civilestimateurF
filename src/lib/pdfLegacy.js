@@ -31,6 +31,7 @@ const regrouperParChapitre = (lignes) => {
   }
   return [...groupes.values()].sort((a, b) => a.n - b.n)
 }
+const designationPdf = (s) => String(s || '').replace(/Aciers HA\s*[—–-]\s*estimation par ratios \(ferraillage non détaillé\),?\s*tous éléments/i, 'Aciers HA')
 
 // Éclaircit/fonce une couleur RGB d'un facteur (-1 à 1)
 const shade = ([r, g, b], f) => {
@@ -236,7 +237,7 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, materiau
     head: [['N°', 'Désignation des ouvrages', 'Unité', 'Qté', 'Prix U (FCFA)', 'Prix total (FCFA)']],
     body: chapitres.flatMap((c) => [
       [{ content: `${c.n}  ${c.titre}`, colSpan: 6, styles: { fontStyle: 'bold', fillColor: [208, 208, 208], textColor: 26, halign: 'left' } }],
-      ...c.lignes.map((l) => [l.n, l.des, l.u, pdfNum(l.q, 2), pdfNum(l.pu, 0), pdfNum(l.montant, 0)]),
+      ...c.lignes.map((l) => [l.n, designationPdf(l.des), l.u, pdfNum(l.q, 2), pdfNum(l.pu, 0), pdfNum(l.montant, 0)]),
       [{ content: `Sous-total ${c.n} — ${c.titre}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [227, 227, 227], textColor: 26, halign: 'right' } },
         { content: pdfNum(c.lignes.reduce((s, l) => s + l.montant, 0), 0), styles: { fontStyle: 'bold', fillColor: [227, 227, 227], textColor: 26, halign: 'right' } }],
     ]),

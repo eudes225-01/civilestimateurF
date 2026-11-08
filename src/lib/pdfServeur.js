@@ -18,7 +18,6 @@ export function construireModele({ proj, totaux, brand, opts, dqe, materiaux }) 
       lignes: dqe.lignes.map(({ n, des, u, q, pu, montant, detail }) => ({ n, des, u, q, pu, montant, detail })),
       ht: dqe.ht, tva: dqe.tva, ttc: dqe.ttc,
       mode: dqe.mode,
-      inclus: (dqe.inclus || []).map(({ des, u, q, inclusDans }) => ({ des, u, q, inclusDans })),
     },
     materiaux: (materiaux?.synthese || totaux.materiaux?.synthese || []).map(({ code, designation, unite, quantite, quantiteCommande, ouvrages }) => ({ code, designation, unite, quantite, quantiteCommande, ouvrages })),
     metres: METRES_COMPLETS
