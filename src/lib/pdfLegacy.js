@@ -81,7 +81,7 @@ export const METRES_COMPLETS = [
 ]
 
 /** Génère et télécharge le PDF dans le navigateur. Lève une erreur en cas d'échec. */
-export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe }) {
+export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, materiaux }) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -266,6 +266,36 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe }) {
   })
 
   // ════════════════════════════════════════════════════════════
+  // PAGE — QUANTITÉS DE MATÉRIAUX
+  // ════════════════════════════════════════════════════════════
+  const lignesMateriaux = materiaux?.synthese || totaux.materiaux?.synthese || []
+  if (lignesMateriaux.length) {
+    doc.addPage()
+    drawHeaderBand('Quantités de matériaux')
+    y = 30
+    doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
+    doc.text('Quantités de matériaux', M, y); y += 5
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M, right: M, bottom: 18 },
+      theme: 'grid',
+      head: [['Matériau', 'Quantité', 'Unité', 'À commander']],
+      body: lignesMateriaux.map((x) => [x.designation, pdfNum(x.quantite, 2), x.unite, pdfNum(x.quantiteCommande ?? x.quantite, /^(sac|u|pce)$/.test(x.unite) ? 0 : 2)]),
+      styles: { fontSize: 8.5, cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 }, overflow: 'linebreak' },
+      headStyles: { fillColor: [r, g, b], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: shade([r, g, b], 0.92) },
+      columnStyles: {
+        0: { cellWidth: 96 },
+        1: { cellWidth: 28, halign: 'right' },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 38, halign: 'right' },
+      },
+      didDrawPage: () => drawHeaderBand('Quantités de matériaux — suite'),
+    })
+  }
+
+  // ════════════════════════════════════════════════════════════
   // PAGE — RÉCAPITULATIF COMPLET DES QUANTITÉS (MÉTRÉS)
   // ════════════════════════════════════════════════════════════
   if (opts.metresComplets) {
@@ -284,7 +314,8 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe }) {
         .filter(([k]) => Math.round((+totaux[k] || 0) * 100) !== 0)
         .map(([k, lab, u]) => [lab, pdfNum(totaux[k], 2), u]),
       styles: { fontSize: 8.5, cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 }, overflow: 'linebreak' },
-      headStyles: { fillColor: [110, 110, 110], textColor: 255 },
+      headStyles: { fillColor: [r, g, b], textColor: 255 },
+      alternateRowStyles: { fillColor: shade([r, g, b], 0.92) },
       columnStyles: {
         0: { cellWidth: 120 },
         1: { cellWidth: 40, halign: 'right' },
