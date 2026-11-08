@@ -333,7 +333,8 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, materiau
     doc.setPage(i)
     if (opts.pageGarde && i === 1) continue
     doc.setFontSize(6.5); doc.setTextColor(120, 120, 120)
-    doc.text('Résultats indicatifs — barème RPR 26.2 (mars 2026) — prix décomposés', M, H - 3)
+    const pied = [proj.entreprise, 'barème RPR 26.2 (mars 2026)'].filter(Boolean).join(' — ')
+    doc.text(pied, M, H - 3)
     doc.text(`${i} / ${pageCount}`, W - M, H - 3, { align: 'right' })
   }
 
