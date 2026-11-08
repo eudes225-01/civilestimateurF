@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import { HardHat, Search, Info, RotateCcw } from 'lucide-react'
 import { Card, Input, SectionTitle, Badge } from '../ui/index.jsx'
+import ModeChiffrage from '../dqe/ModeChiffrage.jsx'
 import { fmtNum, fmtMois } from '../../lib/format.js'
 import { estEstime, estModifie, prixParDefaut, coeffK, KDEFAUT } from '../../lib/prixEstimes.js'
 
@@ -32,6 +33,7 @@ export default function TabPrix({ prix, setPrix, prixInfo, params, setParams }) 
           <Badge variant="ind"><HardHat size={13} /> Édition activée — Professionnel</Badge>
         </div>
 
+        <div className="mb-4"><ModeChiffrage params={params} setParams={setParams} /></div>
         <p className="text-[13px] text-muted mb-4">
           Chaque poste a un prix moyen par défaut : modifiez-le selon vos fournisseurs et la réalité de votre terrain.
           Saisissez le <strong>prix de base (déboursé sec)</strong> : le coefficient K ci-dessous est ajouté automatiquement

@@ -12,18 +12,19 @@ import { Plus, Trash2, AlertTriangle, AlertOctagon, Info, ChevronDown } from 'lu
 import { Card, Input, Label, Button, Select, SectionTitle, Separator, Badge } from '../ui/index.jsx'
 import { fmtNum } from '../../lib/format.js'
 import {
-  metrerProjet, TOITURES, TYPES_MUR, TYPES_PLANCHER,
+  metrerProjet, TOITURES, TYPES_MUR, TYPES_PLANCHER, PLANCHERS_CORPS_CREUX, CATEGORIES_MUR, MORTIER_DEFAUT,
   SYSTEMES_CONSTRUCTIFS, SYSTEMES_FONDATION, RATIOS_ACIER_DEFAUT, FONDATION_DEFAUT,
 } from '../../lib/metre.js'
 import LevelPlan from '../LevelPlan.jsx'
 
 const DEF_PIECE = { nom: '', L: '', l: '', H: '', portes: '', fenetres: '' }
-const DEF_MUR = { nom: '', type: 'agglo15', nb: 1, L: '', H: '', position: 'interieur', portes: '', fenetres: '', jonctionsT: '', jonctionsX: '', poteaux: '' }
+const DEF_MUR = { nom: '', type: 'agglo15', categorie: '', nb: 1, L: '', H: '', position: 'interieur', portes: '', fenetres: '', jonctionsT: '', jonctionsX: '', poteaux: '' }
 const DEF_POTEAU = { nom: '', nb: 1, a: 0.3, b: 0.25, H: '' }
 const DEF_POUTRE = { nom: '', nb: 1, L: '', b: 0.25, h: 0.4 }
 const DEF_VOILE = { nom: '', nb: 1, L: '', ep: 0.2, H: '' }
 const DEF_CV = { nom: '', nb: 1, a: 0.15, b: 0.15, H: '' }
 const DEF_SEMELLE = { type: 'S1', nb: 1, L: '', l: '', h: 0.3, prof: 1.5 }
+const DEF_PIGNON = { nom: '', nb: 1, L1: '', P1: '', L2: '', P2: '', type: 'agglo15' }
 const DEF_LIN = { nom: '', nb: 1, L: '', b: 0.2, h: 0.2, prof: 1.5 }
 
 const ALERTE_STYLE = {
@@ -74,6 +75,7 @@ function ListEditor({ titre, items, cols, def, onChange, addLabel = 'Ajouter' })
 export default function TabNiveaux({ levels, setLevels, params, setParams, peutLire = true, onCredits }) {
   const { totaux, parNiveau, alertes } = useMemo(() => metrerProjet(levels, params), [levels, params])
   const [ouvertRatios, setOuvertRatios] = useState(false)
+  const [ouvertMortier, setOuvertMortier] = useState(false)
 
   const setP = (k, v) => setParams({ ...params, [k]: v })
   const fond = { ...FONDATION_DEFAUT, ...(params.fondation || {}) }
@@ -170,6 +172,61 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
           <NumIn value={params.chainageHaut?.h ?? 0.2} onChange={(v) => setP('chainageHaut', { ...(params.chainageHaut || {}), h: v })} w="w-[64px]" />
         </div>
 
+        {/* Déduction de hauteur des murs : S = (Ld − Lp) × (Ht − Hs − Hbp − 2·ec) − Sb */}
+        <Separator />
+        <label className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+          <input type="checkbox" checked={!!params.deductionHauteur?.actif} onChange={(e) => setP('deductionHauteur', { ...(params.deductionHauteur || {}), actif: e.target.checked })} className="w-3.5 h-3.5 accent-laterite" />
+          Déduire de la hauteur des murs : semelles, béton de propreté et chaînages
+        </label>
+        <p className="text-[11.5px] text-muted mt-1">À activer seulement si la hauteur saisie des murs est la hauteur <b>totale</b> (sinon un même élément serait déduit deux fois). Jamais appliqué au soubassement.</p>
+        {params.deductionHauteur?.actif && (
+          <div className="mt-2 flex flex-wrap gap-3">
+            <div><Label>Hs semelles (m)</Label><NumIn value={params.deductionHauteur?.Hs} onChange={(v) => setP('deductionHauteur', { ...params.deductionHauteur, Hs: v })} w="w-[84px]" /></div>
+            <div><Label>Hbp propreté (m)</Label><NumIn value={params.deductionHauteur?.Hbp} onChange={(v) => setP('deductionHauteur', { ...params.deductionHauteur, Hbp: v })} w="w-[84px]" /></div>
+            <div><Label>ec chaînage (m)</Label><NumIn value={params.deductionHauteur?.ec} onChange={(v) => setP('deductionHauteur', { ...params.deductionHauteur, ec: v })} w="w-[84px]" ph="0,20" /></div>
+            <div><Label>Nb chaînages</Label><NumIn value={params.deductionHauteur?.nChainages} onChange={(v) => setP('deductionHauteur', { ...params.deductionHauteur, nChainages: v })} w="w-[70px]" ph="2" /></div>
+          </div>
+        )}
+
+        {/* Mortier de pose et ciment des joints : par type de bloc, modifiable */}
+        <Separator />
+        <button onClick={() => setOuvertMortier((o) => !o)} className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+          <ChevronDown size={14} className={`transition-transform ${ouvertMortier ? 'rotate-180' : ''}`} />
+          Mortier de pose &amp; ciment des joints (par type de bloc)
+        </button>
+        {ouvertMortier && (
+          <div className="mt-3 grid gap-3 text-[13px]">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-1.5"><input type="radio" name="mortierMode" checked={params.mortier?.mode === 'volume'} onChange={() => setP('mortier', { ...(params.mortier || {}), mode: 'volume' })} /> Volume de mortier × dosage</label>
+              <label className="flex items-center gap-1.5"><input type="radio" name="mortierMode" checked={(params.mortier?.mode ?? 'blocsParSac') === 'blocsParSac'} onChange={() => setP('mortier', { ...(params.mortier || {}), mode: 'blocsParSac' })} /> Règle « 1 sac pour N blocs » <span className="text-muted text-[11.5px]">(défaut : N = 70)</span></label>
+            </div>
+            <p className="text-[11.5px] text-muted">Règle de référence : 1 sac pour 70 agglos/briques standards (sacs arrondis à l'entier supérieur à la commande) ; elle varie avec la dimension du bloc, l'épaisseur des joints et la recette du mortier. Ajustez-la par type.</p>
+            <div className="overflow-x-auto"><table className="text-[12.5px] min-w-[560px]">
+              <thead><tr className="text-muted text-[11px] uppercase"><th className="text-left pr-3 py-1">Type de bloc</th><th className="pr-3">Blocs/m²</th><th className="pr-3">Pertes %</th><th className="pr-3">Mortier m³/m²</th><th className="pr-3">Dosage kg/m³</th><th className="pr-3">Blocs / sac</th></tr></thead>
+              <tbody>{Object.entries(TYPES_MUR).map(([k, t]) => {
+                const ov = params.mortier?.parType?.[k] || {}
+                const setO = (champ, v) => setP('mortier', { ...(params.mortier || {}), parType: { ...(params.mortier?.parType || {}), [k]: { ...ov, [champ]: v } } })
+                return (<tr key={k} className="border-t border-line/60"><td className="py-1 pr-3">{t.lab}</td>
+                  {[['blocsM2', t.blocsM2], ['pertesPct', t.pertesKey === 'pertesBrique' ? (params.pertesBrique ?? 8) : (params.pertesAgglo ?? 7)], ['mortierM3M2', t.mortierM3M2], ['dosageKgM3', t.dosageKgM3], ['blocsParSac', t.blocsParSac ?? MORTIER_DEFAUT.blocsParSac]].map(([champ, def]) => (
+                    <td key={champ} className="pr-3 py-1"><NumIn value={ov[champ]} onChange={(v) => setO(champ, v)} w="w-[78px]" ph={String(def)} step="0.001" /></td>))}
+                </tr>)
+              })}</tbody></table></div>
+          </div>
+        )}
+
+        {/* Pignons de toiture : triangles de maçonnerie sous toiture, ajoutés au métré des murs */}
+        <Separator />
+        <p className="text-[13px] font-semibold text-ink mb-1">Pignons (murs triangulaires sous toiture)</p>
+        <p className="text-[11.5px] text-muted mb-2">Sans saisie, les pignons ne sont pas inclus au métré (une alerte le signale). L1 = largeur horizontale d'un versant (m), P1 = pente du versant (tan α, ex. 0,5 ≈ 27°). Pignon à une seule pente : laisser L2 vide.</p>
+        <ListEditor
+          items={params.plans?.toiture?.pignons || []}
+          onChange={(l) => setP('plans', { ...(params.plans || {}), toiture: { ...(params.plans?.toiture || {}), pignons: l } })}
+          def={DEF_PIGNON} addLabel="Ajouter un pignon"
+          cols={[
+            { k: 'nom', lab: 'Nom', type: 'text', w: 'w-[90px]', ph: 'Pignon nord' }, { k: 'nb', lab: 'Nb', w: 'w-[52px]' },
+            { k: 'L1', lab: 'L1 (m)' }, { k: 'P1', lab: 'P1' }, { k: 'L2', lab: 'L2 (m)' }, { k: 'P2', lab: 'P2' },
+          ]} />
+
         {/* Ratios d'acier par élément (A5) */}
         <Separator />
         <button onClick={() => setOuvertRatios((o) => !o)} className="flex items-center gap-2 text-[13px] font-semibold text-ink">
@@ -250,6 +307,43 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
             </>
           )}
         </div>
+
+        {/* Terrassement : réemploi des terres, purge de sol impropre, apport extérieur — choix explicites */}
+        {(() => {
+          const T = { ...(fond.terrassement || {}) }
+          const setT = (patch) => setF('terrassement', { ...T, ...patch })
+          const ree = T.reemploi === false || T.reemploi?.actif === false ? { actif: false, taux: 1 } : { actif: true, taux: T.reemploi?.taux ?? 1 }
+          const purge = !!T.bloquant || T.purge?.actif === true
+          return (
+            <div className="rounded-xl2 border border-line bg-muted-bg/40 p-3.5 mb-4">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-muted mb-2">Terrassement (déblais / remblais)</p>
+              <div className="grid gap-2 text-[13px]">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={purge} onChange={(e) => setT({ bloquant: false, purge: { ...(T.purge || {}), actif: e.target.checked } })} className="w-3.5 h-3.5 accent-laterite" />
+                  Purge de sol impropre (évacuation totale + apport extérieur)</label>
+                {purge && (
+                  <div><Label>Justification obligatoire (étude géotechnique, sol rencontré…)</Label>
+                    <Input value={T.purge?.justification || ''} onChange={(e) => setT({ purge: { ...(T.purge || {}), actif: true, justification: e.target.value } })} className="px-2 py-1.5 text-[12.5px]" /></div>
+                )}
+                {!purge && (<>
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={ree.actif} onChange={(e) => setT({ reemploi: { actif: e.target.checked, taux: ree.taux } })} className="w-3.5 h-3.5 accent-laterite" />
+                    Réemploi des terres excavées en remblai <span className="text-muted text-[11.5px]">(sinon : évacuation totale)</span></label>
+                  {ree.actif && (
+                    <div className="flex items-center gap-2"><span className="text-[11px] text-muted">Part réemployable (0 à 1)</span>
+                      <NumIn value={ree.taux} onChange={(v) => setT({ reemploi: { actif: true, taux: Math.min(1, v) } })} w="w-[70px]" step="0.05" /></div>
+                  )}
+                  {!ree.actif && (<>
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={T.apportExterieur?.actif === true} onChange={(e) => setT({ apportExterieur: { ...(T.apportExterieur || {}), actif: e.target.checked } })} className="w-3.5 h-3.5 accent-laterite" />
+                      Remblai par apport extérieur</label>
+                    {T.apportExterieur?.actif && (
+                      <div><Label>Justification de l'apport extérieur</Label>
+                        <Input value={T.apportExterieur?.justification || ''} onChange={(e) => setT({ apportExterieur: { ...(T.apportExterieur || {}), actif: true, justification: e.target.value } })} className="px-2 py-1.5 text-[12.5px]" /></div>
+                    )}
+                  </>)}
+                </>)}
+              </div>
+            </div>
+          )
+        })()}
 
         {fond.type === 'filante' && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
@@ -369,6 +463,36 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
               <div><Label>Surf. plancher (m²) <span className="text-muted font-normal">(vide = Σ pièces)</span></Label>
                 <NumIn value={lv.surfPlancher} onChange={(v) => upLevel(li, 'surfPlancher', v)} w="w-[104px]" /></div>
               <div><Label>Trémies (m²)</Label><NumIn value={lv.tremies} onChange={(v) => upLevel(li, 'tremies', v)} w="w-[84px]" /></div>
+              {/* Données propres au type de plancher (jamais devinées : saisies ou « à confirmer ») */}
+              {PLANCHERS_CORPS_CREUX.includes(lv.plancher) && (<>
+                {!TYPES_PLANCHER[lv.plancher]?.corpsCreux && (
+                  <div className="w-[120px]"><Label>Entrevous (cm)</Label>
+                    <Select value={lv.corpsCreux || ''} onChange={(e) => upLevel(li, 'corpsCreux', e.target.value === '' ? '' : +e.target.value)} className="text-[12.5px]">
+                      <option value="">À choisir</option><option value="15">15 (15+5)</option><option value="20">20 (20+5)</option>
+                    </Select></div>
+                )}
+                <div><Label>Entraxe poutrelles (m)</Label><NumIn value={lv.entraxe} onChange={(v) => upLevel(li, 'entraxe', v)} w="w-[96px]" ph="à saisir" /></div>
+                <div><Label>Portée poutrelle (m)</Label><NumIn value={lv.porteePoutrelle} onChange={(v) => upLevel(li, 'porteePoutrelle', v)} w="w-[96px]" ph="optionnel" /></div>
+                <div title="Dimension du plancher PERPENDICULAIRE aux poutrelles : Np = L_perp ÷ entraxe + 1"><Label>L perp. poutrelles (m)</Label><NumIn value={lv.longueurPerpPoutrelles} onChange={(v) => upLevel(li, 'longueurPerpPoutrelles', v)} w="w-[96px]" ph="Np = L÷e+1" /></div>
+                <div title="Hourdis : N = S dalle ÷ S hourdis (+ pertes)"><Label>Hourdis L × l (m)</Label><div className="flex gap-1">
+                  <NumIn value={lv.dimHourdis?.L} onChange={(v) => upLevel(li, 'dimHourdis', { ...(lv.dimHourdis || {}), L: v })} w="w-[58px]" ph="0,60" />
+                  <NumIn value={lv.dimHourdis?.l} onChange={(v) => upLevel(li, 'dimHourdis', { ...(lv.dimHourdis || {}), l: v })} w="w-[58px]" ph="0,20" /></div></div>
+                <div><Label>Pertes hourdis (%)</Label><NumIn value={lv.pertesHourdis} onChange={(v) => upLevel(li, 'pertesHourdis', v)} w="w-[78px]" ph={String(params.pertesHourdis ?? 5)} /></div>
+                <div className="w-[150px]"><Label>Finition sous-face</Label>
+                  <Select value={lv.finitionSousFace || 'aucune'} onChange={(e) => upLevel(li, 'finitionSousFace', e.target.value)} className="text-[12.5px]">
+                    <option value="aucune">Aucune</option><option value="enduit">Enduit</option><option value="faux_plafond">Faux plafond</option>
+                  </Select></div>
+              </>)}
+              {['dalleTP', 'dallePleine', 'nervuree'].includes(lv.plancher) && (
+                <div><Label>Périmètre rives (m)</Label><NumIn value={lv.perimetre} onChange={(v) => upLevel(li, 'perimetre', v)} w="w-[96px]" ph="coffrage rives" /></div>
+              )}
+              {lv.plancher === 'nervuree' && (<>
+                <div><Label>Entraxe nervures (m)</Label><NumIn value={lv.nervures?.entraxe} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), entraxe: v })} w="w-[90px]" /></div>
+                <div><Label>b × h nerv. (m)</Label><div className="flex gap-1">
+                  <NumIn value={lv.nervures?.b} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), b: v })} w="w-[60px]" />
+                  <NumIn value={lv.nervures?.h} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), h: v })} w="w-[60px]" /></div></div>
+                <div><Label>Ép. table (m)</Label><NumIn value={lv.epDalle} onChange={(v) => upLevel(li, 'epDalle', v)} w="w-[80px]" /></div>
+              </>)}
               {levels.length > 1 && (
                 <button onClick={() => removeLevel(li)} className="text-muted hover:text-laterite ml-auto pb-2"><Trash2 size={15} /></button>
               )}
@@ -392,10 +516,18 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
                       <span className="text-[10.5px] text-muted">L</span>
                       <NumIn value={mu.L} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, L: v }; upList(li, 'murs', n) }} w="w-[70px]" />
                       <span className="text-[10.5px] text-muted">H</span>
-                      <NumIn value={mu.H} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, H: v }; upList(li, 'murs', n) }} w="w-[64px]" ph="HSP" />
+                      <NumIn value={mu.H} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, H: v }; upList(li, 'murs', n) }} w="w-[64px]" ph={mu.categorie === 'soubassement' ? 'obligatoire' : 'HSP'} />
                       <div className="w-[112px] shrink-0"><Select value={mu.position || 'interieur'} onChange={(e) => { const n = [...lv.murs]; n[mi] = { ...mu, position: e.target.value }; upList(li, 'murs', n) }} className="px-2 py-1.5 text-[12.5px]">
                         <option value="exterieur">Extérieur</option><option value="interieur">Intérieur</option><option value="mitoyen">Mitoyen</option>
                       </Select></div>
+                      <div className="w-[150px] shrink-0" title="Catégorie d'ouvrage (métré séparé). Auto = déduite de la position et du bloc. Un soubassement exige longueur, hauteur et type de bloc saisis.">
+                        <Select value={mu.categorie || ''} onChange={(e) => { const n = [...lv.murs]; n[mi] = { ...mu, categorie: e.target.value }; upList(li, 'murs', n) }} className="px-2 py-1.5 text-[12.5px]">
+                          <option value="">Catégorie : auto</option>
+                          {Object.entries(CATEGORIES_MUR).map(([k, c]) => <option key={k} value={k}>{c.lab}</option>)}
+                        </Select></div>
+                      {mu.categorie === 'soubassement' && (
+                        <label className="flex items-center gap-1 text-[10.5px] text-muted"><input type="checkbox" checked={!!mu.enduitHydrofuge} onChange={(e) => { const n = [...lv.murs]; n[mi] = { ...mu, enduitHydrofuge: e.target.checked }; upList(li, 'murs', n) }} className="w-3 h-3" />Enduit hydrofuge</label>
+                      )}
                       <span className="text-[10.5px] text-muted">Portes</span>
                       <NumIn value={mu.portes} onChange={(v) => { const n = [...lv.murs]; n[mi] = { ...mu, portes: v }; upList(li, 'murs', n) }} w="w-[52px]" step="1" />
                       <span className="text-[10.5px] text-muted">Fen.</span>

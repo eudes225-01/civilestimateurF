@@ -5,7 +5,12 @@
 import React, { useMemo, useState } from 'react'
 import { AlertTriangle, AlertOctagon, Info, ChevronDown, ListTree } from 'lucide-react'
 import { Card, SectionTitle, Badge } from '../ui/index.jsx'
-import { buildDQE, montantsIncomplets } from '../../lib/metre.js'
+import { montantsIncomplets } from '../../lib/metre.js'
+import { construireDQE } from '../../lib/calcul.js'
+import ModeChiffrage from '../dqe/ModeChiffrage.jsx'
+import MateriauxPanel from '../dqe/MateriauxPanel.jsx'
+import MetreDetaille from '../dqe/MetreDetaille.jsx'
+import HypothesesPanel from '../dqe/HypothesesPanel.jsx'
 import ValidationExceptions from '../ValidationExceptions.jsx'
 import { buildSousDetail } from '../../lib/metre.js'
 import { fmtCFA, fmtNum } from '../../lib/format.js'
@@ -17,10 +22,11 @@ const ALERTE_STYLE = {
   info:      { Icon: Info,          cls: 'bg-lagune-soft border-lagune/25 text-lagune-deep' },
 }
 
-export default function TabDQE({ totaux, prix, params, setParams, alertes = [], couverture, prixInfo }) {
+export default function TabDQE({ totaux, prix, params, setParams, alertes = [], couverture, prixInfo, materiaux }) {
   const [ouverts, setOuverts] = useState({})
+  const [vue, setVue] = useState('dqe')
   const prixMap = useMemo(() => Object.fromEntries(prix.map((p) => [p.code, p.pu])), [prix])
-  const dqe = useMemo(() => buildDQE(totaux, prixMap, params.K || 1.3), [totaux, prixMap, params.K])
+  const dqe = useMemo(() => construireDQE(totaux, prixMap, params, couverture), [totaux, prixMap, params, couverture])
   const montants = useMemo(() => montantsIncomplets(dqe, couverture), [dqe, couverture])
   const surEstimes = useMemo(() => lignesSurPrixEstimes(dqe.lignes, prix), [dqe.lignes, prix])
   const sousDetail = useMemo(() => buildSousDetail(dqe.lignes, prixMap, params.K || 1.3), [dqe.lignes, prixMap, params.K])
@@ -33,10 +39,31 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
     )
   }
 
-  const bloquantes = alertes.filter((a) => a.niveau === 'bloquante')
+  const bloquantes = [...alertes, ...(dqe.alertes || [])].filter((a) => a.niveau === 'bloquante')
+  const nbSignal = alertes.length + (dqe.sansPrix?.length || 0) + (dqe.estimes?.length || 0) + (dqe.alertes?.length || 0)
+  const VUES = [
+    ['dqe', 'DQE financier'], ['metre', 'Métré détaillé'], ['materiaux', 'Quantités de matériaux'],
+    ['hypotheses', 'Hypothèses & paramètres'], ['alertes', `Alertes & postes estimés (${nbSignal})`],
+  ]
 
   return (
     <div className="grid gap-5">
+      {/* ── Navigation entre les sorties distinctes : DQE financier / métré / matériaux / hypothèses / alertes ── */}
+      <div className="flex flex-wrap gap-1.5" role="tablist">
+        {VUES.map(([k, lab]) => (
+          <button key={k} type="button" role="tab" aria-selected={vue === k} onClick={() => setVue(k)}
+            className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${vue === k ? 'border-indigo bg-indigo text-white' : 'border-line bg-card text-ink hover:border-indigo/50'}`}>{lab}</button>
+        ))}
+      </div>
+      {bloquantes.length > 0 && vue !== 'alertes' && (
+        <div className="rounded-xl2 border px-3.5 py-2.5 flex gap-2 text-[13px] bg-laterite-soft border-laterite/30 text-laterite-deep">
+          <AlertOctagon size={16} className="shrink-0 mt-0.5" /><span><b>{bloquantes.length} alerte(s) bloquante(s)</b> — voir « Alertes & postes estimés ».</span>
+        </div>
+      )}
+      {vue === 'metre' && <MetreDetaille totaux={totaux} />}
+      {vue === 'materiaux' && <MateriauxPanel materiaux={materiaux || totaux.materiaux} />}
+      {vue === 'hypotheses' && <HypothesesPanel totaux={totaux} />}
+      {vue === 'alertes' && (<>
       {/* ── Exceptions à valider (plan d'amélioration) : score de couverture + données à confirmer ── */}
       <ValidationExceptions couverture={couverture} setParams={setParams} montants={montants} />
 
@@ -89,10 +116,33 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
         </div>
       )}
 
+      {(dqe.alertes || []).map((a, i) => (
+        <div key={`dq${i}`} className="rounded-xl2 border px-3.5 py-2.5 flex gap-2.5 text-[13px] bg-laterite-soft border-laterite/30 text-laterite-deep">
+          <AlertOctagon size={16} className="shrink-0 mt-0.5" /><span><b className="uppercase text-[10.5px] tracking-wide mr-1.5">{a.niveau}</b>{a.msg}</span>
+        </div>
+      ))}
+      {dqe.estimes?.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-soleil/30 bg-soleil-soft/60 text-soleil-deep p-3 text-[12.5px]">
+          <Info size={15} className="mt-0.5 shrink-0" />
+          <span><b>Postes à prix estimé par défaut (non confirmés) :</b> {dqe.estimes.map((l) => `${l.n} ${l.des}`).join(' · ')}.</span>
+        </div>
+      )}
+      </>)}
+
+      {vue === 'dqe' && (<>
+      <Card className="p-5">
+        <ModeChiffrage params={params} setParams={setParams} />
+        <p className="text-[11.5px] text-muted mt-2">Le mode choisi s'applique au DQE et au PDF. Quel que soit le mode, la liste des matériaux reste disponible dans « Quantités de matériaux ».</p>
+      </Card>
+      {dqe.statut !== 'complet' && (
+        <div className="rounded-xl2 border px-3.5 py-2.5 text-[12.5px] bg-soleil-soft border-soleil/30 text-soleil-deep">
+          <b>Montant INDICATIF — le total n'est pas présenté comme complet :</b> {dqe.raisonsIncomplet.join(' · ')}.
+        </div>
+      )}
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <SectionTitle className="mb-0">Devis Quantitatif Estimatif</SectionTitle>
-          <Badge variant="lat">K = {params.K}</Badge>
+          <div className="flex gap-1.5"><Badge variant="ind">{dqe.mode === 'decompose' ? 'Prix décomposés' : 'Prix composés'}</Badge><Badge variant="lat">K = {params.K}</Badge></div>
         </div>
 
         {/* ── Périmètre couvert (B2) ── */}
@@ -132,6 +182,7 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
                             <ChevronDown size={12} className={`text-muted transition-transform ${ouvert ? 'rotate-180' : ''}`} />
                           </button>
                         ) : l.des}
+                        {l.estime && <span className="ml-1.5 text-[10.5px] text-soleil-deep font-semibold">(prix estimé)</span>}
                       </td>
                       <td className="py-2 pr-3 text-center text-muted">{l.u}</td>
                       <td className="py-2 pr-3 text-right">{fmtNum(l.q, 2)}</td>
@@ -166,11 +217,18 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
           </table>
         </div>
 
+        {dqe.inclus?.length > 0 && (
+          <div className="mt-4 rounded-xl2 border border-line bg-muted-bg/50 px-3.5 py-2.5 text-[12.5px]">
+            <p className="font-semibold mb-1">Composants et volumes non facturés en plus (déjà compris dans un prix composé, ou terres réemployées)</p>
+            <ul className="grid gap-0.5 text-muted">{dqe.inclus.map((x, i) => <li key={i}>{x.des} : <b className="text-ink">{fmtNum(x.q, 2)} {x.u}</b> — inclus dans {x.inclusDans}</li>)}</ul>
+          </div>
+        )}
+
         {/* Totaux */}
         <div className="mt-5 border-t border-line pt-4">
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="bg-indigo-soft rounded-[12px] px-4 py-3 text-center">
-              <p className="text-[11.5px] text-indigo uppercase tracking-wide font-semibold">Total HT</p>
+              <p className="text-[11.5px] text-indigo uppercase tracking-wide font-semibold">{dqe.libelleTotal || 'Total HT'}</p>
               <p className="font-bold text-[16px] mt-1 font-mono tabular-nums text-indigo-deep">{fmtCFA(dqe.ht)}</p>
             </div>
             <div className="bg-soleil-soft rounded-[12px] px-4 py-3 text-center">
@@ -183,7 +241,7 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
             </div>
           </div>
           <p className="text-[12px] text-muted mt-3">
-            Prix unitaires majorés par K = {params.K} (aléas + frais généraux + bénéfice). Base {prixInfo?.version || 'RPR'}.
+            Prix unitaires majorés par K = {params.K} (aléas + frais généraux + bénéfice). Base {prixInfo?.version || dqe.baseDePrix?.version || 'RPR'}{(prixInfo?.date || dqe.baseDePrix?.date) ? ` (${prixInfo?.date || dqe.baseDePrix?.date})` : ''}.
             <b> Total gros œuvre uniquement, hors second œuvre.</b> Estimation indicative : ne remplace pas
             un métré d'exécution ni les prix réels du marché.
           </p>
@@ -256,6 +314,7 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
           indicatives. Un bureau d'études peut les ajuster selon ses propres bordereaux.
         </p>
       </Card>
+      </>)}
     </div>
   )
 }

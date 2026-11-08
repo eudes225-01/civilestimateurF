@@ -173,7 +173,7 @@ export default function App() {
     if (id) await renommerEnBase(id, t)
   }
 
-  const { totaux, alertes, couverture } = useMemo(() => metrerProjet(levels, params), [levels, params])
+  const { totaux, alertes, couverture, materiaux } = useMemo(() => metrerProjet(levels, params), [levels, params])
 
   // Comptes actifs : la connexion Google est obligatoire pour utiliser l'application.
   if (comptes && chargement) return <div className="min-h-screen grid place-items-center text-muted text-[13px]">Chargement…</div>
@@ -247,7 +247,7 @@ export default function App() {
           {tab === 'projet'  && <TabProjet  proj={proj} setProj={setProj} setLevels={setLevels} setParams={setParams} couverture={couverture} depots={depots} setDepots={setDepots} peutLire={credits.acces} onCredits={() => setCreditsOuvert(true)} solde={credits.statut === 'local' ? null : credits.solde} minimum={minimumLecture(credits.etat)} admin={credits.statut === 'admin'} />}
           {tab === 'niveaux' && <TabNiveaux levels={levels} setLevels={setLevels} params={params} setParams={setParams} peutLire={credits.acces} onCredits={() => setCreditsOuvert(true)} />}
           {tab === 'prix'    && <TabPrix    prix={prix} setPrix={setPrix} prixInfo={prixInfo} params={params} setParams={setParams} />}
-          {tab === 'dqe'     && <TabDQE     totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
+          {tab === 'dqe'     && <TabDQE     totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} materiaux={materiaux} />}
           {tab === 'export'  && <TabExport  proj={proj} totaux={totaux} prix={prix} params={params} setParams={setParams} alertes={alertes} couverture={couverture} prixInfo={prixInfo} />}
         </div>
 

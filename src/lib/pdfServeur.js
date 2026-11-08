@@ -7,7 +7,7 @@ import { fmtDate, fmtMois } from './format.js'
 import { METRES_COMPLETS } from './pdfLegacy.js'
 
 /** Modèle sérialisable du document (tout est déjà calculé : le serveur ne recalcule rien). */
-export function construireModele({ proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail }) {
+export function construireModele({ proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail, materiaux, couverture }) {
   return {
     proj: { titre: proj.titre, mo: proj.mo, entreprise: proj.entreprise, ref: proj.ref, ville: proj.ville },
     brand: {
@@ -16,9 +16,15 @@ export function construireModele({ proj, totaux, params, prixInfo, brand, opts, 
     },
     opts,
     dqe: {
-      lignes: dqe.lignes.map(({ n, des, u, q, pu, montant }) => ({ n, des, u, q, pu, montant })),
+      lignes: dqe.lignes.map(({ n, des, u, q, pu, montant, estime }) => ({ n, des, u, q, pu, montant, estime })),
       ht: dqe.ht, tva: dqe.tva, ttc: dqe.ttc,
+      // Mode de chiffrage, statut du total et composants « inclus » : le PDF dit ce qui est facturé et ce qui ne l'est pas en plus.
+      mode: dqe.mode, statut: dqe.statut, libelleTotal: dqe.libelleTotal, raisonsIncomplet: dqe.raisonsIncomplet,
+      inclus: (dqe.inclus || []).map(({ des, u, q, inclusDans }) => ({ des, u, q, inclusDans })),
     },
+    materiaux: (materiaux?.synthese || totaux.materiaux?.synthese || []).map(({ code, designation, unite, quantite, quantiteCommande, statut, ouvrages }) => ({ code, designation, unite, quantite, quantiteCommande, statut, ouvrages })),
+    hypotheses: (totaux.hypotheses || []).map(({ lib, valeur, statut }) => ({ lib, valeur, statut })),
+    aConfirmer: (couverture?.aConfirmer || []).filter((x) => x.etat === 'a_confirmer').map((x) => x.sujet),
     sousDetail: sousDetail.map((s) => ({
       n: s.n, des: s.des, u: s.u, composantes: s.composantes.map((c) => ({ lib: c.lib, montant: c.montant })),
       deboursesSec: s.deboursesSec, coeffK: s.coeffK, majoration: s.majoration, puVente: s.puVente,
@@ -33,8 +39,9 @@ export function construireModele({ proj, totaux, params, prixInfo, brand, opts, 
       K: params.K || 1.3,
       toiture: totaux.toiture?.lab || '',
       perimetre: dqe.perimetre || '',
-      prixVersion: prixInfo?.version || 'RPR',
-      prixDate: prixInfo?.date ? fmtMois(prixInfo.date) : '',
+      modeChiffrage: dqe.mode, modeLabel: dqe.modeLabel || '',
+      prixVersion: prixInfo?.version || dqe.baseDePrix?.version || 'RPR',
+      prixDate: prixInfo?.date ? fmtMois(prixInfo.date) : (dqe.baseDePrix?.date || ''),
       date: fmtDate(new Date()),
     },
   }

@@ -262,7 +262,12 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
   drawHeaderBand('Devis Quantitatif Estimatif (DQE)')
   y = 30
   doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 26)
-  doc.text('Devis Quantitatif Estimatif', M, y); y += 5
+  doc.text(`Devis Quantitatif Estimatif — ${dqe.mode === 'decompose' ? 'prix décomposés' : 'prix composés'}`, M, y); y += 5
+  if (dqe.statut && dqe.statut !== 'complet') {
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 80, 0)
+    doc.text(doc.splitTextToSize(`Montant INDICATIF : ${(dqe.raisonsIncomplet || []).join(' ; ')}.`, 210 - 2 * M), M, y); y += 8
+    doc.setTextColor(26, 26, 26)
+  }
 
   autoTable(doc, {
     startY: y,
@@ -271,7 +276,7 @@ export async function exportPdfLegacy({ proj, totaux, params, prixInfo, brand, o
     head: [['N°', 'Désignation', 'U', 'Qté', 'PU (FCFA)', 'Montant HT (FCFA)']],
     body: dqe.lignes.map((l) => [l.n, l.des, l.u, pdfNum(l.q, 2), pdfNum(l.pu, 0), pdfNum(l.montant, 0)]),
     foot: [
-      ['', '', '', '', 'Total HT', pdfNum(dqe.ht, 0)],
+      ['', '', '', '', dqe.statut === 'complet' ? 'Total HT' : 'Total HT indicatif', pdfNum(dqe.ht, 0)],
       ['', '', '', '', 'TVA 18 %', pdfNum(dqe.tva, 0)],
       ['', '', '', '', 'Total TTC', pdfNum(dqe.ttc, 0)],
     ],

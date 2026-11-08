@@ -2,7 +2,8 @@
 import React, { useState, useRef } from 'react'
 import { FileDown, Loader, Image as ImageIcon, X, Palette, BadgeCheck, MapPin, Phone, Mail, Plus, AlertOctagon } from 'lucide-react'
 import { Card, Button, SectionTitle, Label, Input, Badge } from '../ui/index.jsx'
-import { buildDQE, montantsIncomplets, exportAutorise } from '../../lib/metre.js'
+import { montantsIncomplets, exportAutorise } from '../../lib/metre.js'
+import { construireDQE } from '../../lib/calcul.js'
 import ValidationExceptions from '../ValidationExceptions.jsx'
 import { buildSousDetail } from '../../lib/metre.js'
 import { fmtCFA, fmtDate } from '../../lib/format.js'
@@ -48,7 +49,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
   const [hexSaisi, setHexSaisi] = useState(null) // saisie en cours dans le champ #RRGGBB (null : suit la couleur choisie)
 
   const prixMap = Object.fromEntries(prix.map((p) => [p.code, p.pu]))
-  const dqe = buildDQE(totaux, prixMap, params.K || 1.3)
+  const dqe = construireDQE(totaux, prixMap, params, couverture)
   const sousDetail = buildSousDetail(dqe.lignes, prixMap, params.K || 1.3)
   // Une donnée « à confirmer » bloque l'export ; une valeur par défaut explicitement confirmée ne le bloque plus.
   // La trace de confirmation reste dans le projet : le PDF client n'en contient aucune.
@@ -57,6 +58,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
   const blocages = [
     ...alertes.filter((a) => NIVEAUX_BLOQUANTS.includes(a.niveau)).map((a) => `Erreur : ${a.msg}`),
     ...(couverture?.aConfirmer || []).filter((x) => x.etat === 'a_confirmer').map((x) => `Donnée à confirmer : ${x.sujet}`),
+    ...(dqe.alertes || []).filter((a) => NIVEAUX_BLOQUANTS.includes(a.niveau)).map((a) => `Erreur : ${a.msg}`),
     ...(dqe.sansPrix || []).map((l) => `Prix manquant : poste ${l.n} — ${l.des}`),
   ]
   const autorise = exportAutorise(couverture) && blocages.length === 0
@@ -79,7 +81,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
     if (!autorise) return
     setLoading(true)
     setInfo('')
-    const ctx = { proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail }
+    const ctx = { proj, totaux, params, prixInfo, brand, opts, dqe, sousDetail, materiaux: totaux.materiaux, couverture }
     const nom = `BPU_DQE_${(proj.titre || 'projet').replace(/[^\w\-]+/g, '_')}_${fmtDate(new Date()).replace(/\//g, '-')}.pdf`
     try {
       // 1) Rendu HTML/CSS côté serveur (qualité maximale).
@@ -301,7 +303,7 @@ export default function TabExport({ proj, totaux, prix, params, setParams, alert
         {/* Récap chiffré */}
         <div className="bg-muted-bg border border-line rounded-xl2 p-4 mb-4 text-[13px]">
           <p>Projet : <b>{proj.titre || proj.entreprise || '(non renseigné)'}</b></p>
-          <p className="mt-1">Total HT : <b>{fmtCFA(dqe.ht)}</b> · TTC : <b>{fmtCFA(dqe.ttc)}</b> <span className="text-muted">(gros œuvre uniquement)</span></p>
+          <p className="mt-1">{dqe.libelleTotal || 'Total HT'} : <b>{fmtCFA(dqe.ht)}</b> · TTC : <b>{fmtCFA(dqe.ttc)}</b> <span className="text-muted">(gros œuvre uniquement · {dqe.mode === 'decompose' ? 'prix décomposés' : 'prix composés'})</span></p>
           {alertes.length > 0 && (
             <p className="text-muted text-[12px] mt-1">
               {alertes.length} point(s) signalé(s) dans l'onglet DQE — ils ne sont pas imprimés dans le PDF.
