@@ -70,6 +70,8 @@ export const api = {
   supprimerCompte: () => call('DELETE', '/api/compte', { confirmation: 'SUPPRIMER' }),
   // Mail de bienvenue : le serveur n'écrit qu'à la toute première connexion du compte.
   bienvenue:   ()       => call('POST', '/api/email/bienvenue'),
+  // Vérifie si la version courante des conditions a déjà été acceptée à l'entrée de l'application.
+  etatAcceptationConditions: () => call('GET', '/api/politiques/acceptation'),
   // Preuve d'acceptation des conditions d'utilisation (écran d'accueil).
   accepterConditions: (version) => call('POST', '/api/politiques/acceptation', { version }),
   // Renvoie par e-mail la confirmation d'achat de crédits (PDF + conditions) à l'adresse du compte.

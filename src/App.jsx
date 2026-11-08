@@ -183,7 +183,7 @@ export default function App() {
   if (!started) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Onboarding onStart={() => setStarted(true)} />
+        <Onboarding userId={session?.user?.id} onStart={() => setStarted(true)} />
         <Footer prix={prixInfo} />
       </div>
     )

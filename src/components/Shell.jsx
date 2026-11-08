@@ -1,6 +1,6 @@
 // src/components/Shell.jsx
 // Onboarding (avec acceptation des politiques), footer.
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ArrowRight, Shield,
   Calculator, FileCheck2, ScanLine, Check, ChevronDown,
@@ -33,12 +33,37 @@ const ATOUTS = [
   { Ic: ScanLine, t: 'Plans par type', c: 'Fondation, étages, coupe, plomberie, électricité, poutraison, toiture, coffrage : chaque plan est lu et calculé à part.', col: 'jade' },
 ]
 
-export function Onboarding({ onStart }) {
+const cleAcceptationLocale = (userId) => `civilestimateur:conditions:${userId || 'local'}:${POLITIQUES_VERSION}`
+const lireAcceptationLocale = (userId) => {
+  try { return window.localStorage.getItem(cleAcceptationLocale(userId)) === 'oui' } catch { return false }
+}
+
+export function Onboarding({ onStart, userId }) {
   const [accepted, setAccepted] = useState(false)
   const [openPol, setOpenPol] = useState(false)
   const [conditions, setConditions] = useState(false)
+  const [verificationEnCours, setVerificationEnCours] = useState(true)
+
+  useEffect(() => {
+    let actif = true
+    setVerificationEnCours(true)
+    const local = lireAcceptationLocale(userId)
+    setAccepted(local)
+    api.etatAcceptationConditions().then((r) => {
+      if (!actif) return
+      const dejaAcceptees = !!r?.acceptee || local
+      setAccepted(dejaAcceptees)
+      if (r?.acceptee) {
+        try { window.localStorage.setItem(cleAcceptationLocale(userId), 'oui') } catch {}
+      }
+    }).catch(() => { if (actif) setAccepted(local) }).finally(() => {
+      if (actif) setVerificationEnCours(false)
+    })
+    return () => { actif = false }
+  }, [userId])
 
   const demarrer = () => {
+    if (verificationEnCours) return
     if (!accepted) {
       setOpenPol(true)
       document.getElementById('accept-box')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -107,8 +132,9 @@ export function Onboarding({ onStart }) {
         <div className="w-full">
           <button
             onClick={demarrer}
+            disabled={verificationEnCours}
             className={`group relative w-full text-left border-2 rounded-xl3 p-[24px] shadow-card transition-all duration-300 overflow-hidden animate-fade-up [animation-delay:80ms] lg:flex lg:items-center lg:gap-8 lg:p-8
-              ${accepted ? 'bg-card border-indigo/15 hover:-translate-y-1.5 hover:border-indigo hover:shadow-glow' : 'bg-card border-line opacity-60'}`}
+              ${accepted ? 'bg-card border-indigo/15 hover:-translate-y-1.5 hover:border-indigo hover:shadow-glow' : 'bg-card border-line opacity-60'} disabled:cursor-wait`}
           >
             <span className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo to-lagune" />
             <div className="w-[46px] h-[46px] rounded-[13px] grid place-items-center mb-3.5 bg-indigo text-white shadow-glow lg:mb-0 lg:w-[64px] lg:h-[64px] lg:shrink-0">
@@ -142,11 +168,20 @@ export function Onboarding({ onStart }) {
                 type="checkbox"
                 className="sr-only"
                 checked={accepted}
-                onChange={(e) => setAccepted(e.target.checked)}
+                disabled={verificationEnCours}
+                onChange={(e) => {
+                  const valeur = e.target.checked
+                  setAccepted(valeur)
+                  try {
+                    if (valeur) window.localStorage.setItem(cleAcceptationLocale(userId), 'oui')
+                  } catch {}
+                }}
               />
               <span className="text-[13.5px] leading-relaxed">
                 <b className="text-ink">J'ai lu et j'approuve</b> les politiques d'utilisation.
-                {!accepted && <span className="text-laterite-deep font-medium"> (obligatoire pour continuer)</span>}
+                {verificationEnCours
+                  ? <span className="text-muted"> (vérification…)</span>
+                  : !accepted && <span className="text-laterite-deep font-medium"> (obligatoire pour continuer)</span>}
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpenPol((o) => !o) }}
