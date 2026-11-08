@@ -49,10 +49,10 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
   return (
     <div className="grid gap-5">
       {/* ── Navigation entre les sorties distinctes : DQE financier / métré / matériaux / hypothèses / alertes ── */}
-      <div className="flex flex-wrap gap-1.5" role="tablist">
+      <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap" role="tablist">
         {VUES.map(([k, lab]) => (
           <button key={k} type="button" role="tab" aria-selected={vue === k} onClick={() => setVue(k)}
-            className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${vue === k ? 'border-indigo bg-indigo text-white' : 'border-line bg-card text-ink hover:border-indigo/50'}`}>{lab}</button>
+            className={`min-w-0 w-full min-h-10 inline-flex items-center justify-center rounded-xl border px-2 py-2 text-center text-[12px] leading-tight font-semibold transition-colors sm:w-auto sm:whitespace-nowrap sm:rounded-full sm:px-3.5 sm:py-1.5 sm:text-[12.5px] ${k === 'alertes' ? 'col-span-2 sm:col-span-1' : ''} ${vue === k ? 'border-indigo bg-indigo text-white' : 'border-line bg-card text-ink hover:border-indigo/50'}`}>{lab}</button>
         ))}
       </div>
       {bloquantes.length > 0 && vue !== 'alertes' && (
