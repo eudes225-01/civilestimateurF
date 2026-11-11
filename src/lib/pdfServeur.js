@@ -19,10 +19,7 @@ export function construireModele({ proj, totaux, brand, opts, dqe, materiaux }) 
       ht: dqe.ht, tva: dqe.tva, ttc: dqe.ttc,
       mode: dqe.mode,
     },
-    materiaux: {
-      synthese: (materiaux?.synthese || totaux.materiaux?.synthese || []).map(({ code, designation, unite, quantite, quantiteCommande, ouvrages }) => ({ code, designation, unite, quantite, quantiteCommande, ouvrages })),
-      lignes: (materiaux?.lignes || totaux.materiaux?.lignes || []).map(({ designation, unite, quantite, formule, ouvrage, niveau, statut }) => ({ designation, unite, quantite, formule, ouvrage, niveau, statut })),
-    },
+    materiaux: (materiaux?.synthese || totaux.materiaux?.synthese || []).map(({ code, designation, unite, quantite, quantiteCommande, ouvrages }) => ({ code, designation, unite, quantite, quantiteCommande, ouvrages })),
     metres: METRES_COMPLETS
       .filter(([k]) => Math.round((+totaux[k] || 0) * 100) !== 0)
       .map(([k, lib, u]) => ({ lib, q: +totaux[k], u })),
