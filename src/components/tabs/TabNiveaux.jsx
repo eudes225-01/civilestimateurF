@@ -78,6 +78,10 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
   const [ouvertMortier, setOuvertMortier] = useState(false)
 
   const setP = (k, v) => setParams({ ...params, [k]: v })
+  const formeDallage = { actif: false, surface: '', epaisseur: '', dosageKgM3: 350, sableM3ParM3: 1, eauCimentRatio: '', ...(params.formeDallage || {}) }
+  const iRdcForme = Math.max(0, levels.findIndex((lv) => lv?.rez))
+  const surfaceRdcForme = parNiveau[iRdcForme]?.surfPlancher || 0
+  const setFormeDallage = (k, v) => setParams({ ...params, formeDallage: { ...formeDallage, [k]: v } })
   const fond = { ...FONDATION_DEFAUT, ...(params.fondation || {}) }
   const setF = (k, v) => setParams({ ...params, fondation: { ...fond, [k]: v } })
   const setFObj = (k, sub, v) => setParams({ ...params, fondation: { ...fond, [k]: { ...(fond[k] || {}), [sub]: v } } })
@@ -438,6 +442,24 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
         )}
       </Card>
 
+      {/* ══ FORME DE DALLAGE (poste indépendant, compté une seule fois au RDC) ══ */}
+      <Card className="p-5">
+        <SectionTitle>Forme de dallage au RDC</SectionTitle>
+        <p className="text-[12px] text-muted mb-3">Mortier de sable, ciment et eau, indépendant de la dalle béton. Ce poste est compté une seule fois au rez-de-chaussée.</p>
+        <label className="flex items-center gap-2 text-[13px]">
+          <input type="checkbox" checked={!!formeDallage.actif} onChange={(e) => setFormeDallage('actif', e.target.checked)} className="w-3.5 h-3.5 accent-laterite" />
+          Inclure la forme de dallage
+        </label>
+        {formeDallage.actif && <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+          <div className="min-w-0"><Label>Surface (m²)</Label><NumIn value={formeDallage.surface} onChange={(v) => setFormeDallage('surface', v)} ph={`auto ${fmtNum(surfaceRdcForme, 2)} m²`} /></div>
+          <div className="min-w-0"><Label>Épaisseur (m)</Label><NumIn value={formeDallage.epaisseur} onChange={(v) => setFormeDallage('epaisseur', v)} ph="ex. 0,10" /></div>
+          <div className="min-w-0"><Label>Ciment (kg/m³)</Label><NumIn value={formeDallage.dosageKgM3} onChange={(v) => setFormeDallage('dosageKgM3', v)} ph="350" /></div>
+          <div className="min-w-0"><Label>Sable (m³/m³)</Label><NumIn value={formeDallage.sableM3ParM3} onChange={(v) => setFormeDallage('sableM3ParM3', v)} ph="1" /></div>
+          <div className="min-w-0"><Label>Ratio eau/ciment (L/kg)</Label><NumIn value={formeDallage.eauCimentRatio} onChange={(v) => setFormeDallage('eauCimentRatio', v)} ph="à préciser" /></div>
+        </div>}
+        {formeDallage.actif && <p className="mt-2 text-[11.5px] text-muted">Sans surface saisie, la surface nette du RDC est utilisée. Le prix au m³ est calculé automatiquement : ciment + sable + eau, selon les prix de l’onglet Prix. Renseignez le ratio eau/ciment et le prix de l’eau (mettez 0 si elle est sans coût).</p>}
+      </Card>
+
       {/* ══ NIVEAUX ══ */}
       {levels.map((lv, li) => {
         const m = parNiveau[li] || {}
@@ -487,7 +509,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
                 <div className="min-w-0"><Label>Périmètre rives (m)</Label><NumIn value={lv.perimetre} onChange={(v) => upLevel(li, 'perimetre', v)} w="w-full sm:w-[96px]" ph="coffrage rives" /></div>
               )}
               {['dalleTP', 'dallePleine'].includes(lv.plancher) && (
-                <div className="min-w-0"><Label>{lv.plancher === 'dalleTP' ? 'Épaisseur dallage (m)' : 'Épaisseur dalle (m)'}</Label><NumIn value={lv.epDalle} onChange={(v) => upLevel(li, 'epDalle', v)} w="w-full sm:w-[96px]" ph={lv.plancher === 'dalleTP' ? 'ex. 0,10' : 'ex. 0,15'} /></div>
+                <div className="min-w-0"><Label>{lv.plancher === 'dalleTP' ? 'Épaisseur dalle sur terre-plein (m)' : 'Épaisseur dalle (m)'}</Label><NumIn value={lv.epDalle} onChange={(v) => upLevel(li, 'epDalle', v)} w="w-full sm:w-[96px]" ph={lv.plancher === 'dalleTP' ? 'ex. 0,10' : 'ex. 0,15'} /></div>
               )}
               {lv.plancher === 'nervuree' && (<>
                 <div className="min-w-0"><Label>Entraxe nervures (m)</Label><NumIn value={lv.nervures?.entraxe} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), entraxe: v })} w="w-full sm:w-[90px]" /></div>

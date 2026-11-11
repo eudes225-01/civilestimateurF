@@ -255,8 +255,8 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
           <Badge variant="ind">Déboursé sec × K = {params.K}</Badge>
         </div>
         <p className="text-[13px] text-muted mb-4">
-          Décomposition de chaque prix unitaire en matériaux, main d'œuvre et matériel/frais
-          divers, avant application du coefficient de majoration K (aléas, frais généraux, bénéfice).
+          Décomposition des prix avant application du coefficient de majoration K. Pour la forme de dallage,
+          le prix est calculé directement par la somme des quantités de ciment, sable et eau multipliées par leurs prix unitaires.
         </p>
 
         <div className="grid gap-4">
@@ -281,7 +281,7 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
                   <tbody>
                     {sd.composantes.map((c) => (
                       <tr key={c.lib} className="border-t border-line/60">
-                        <td className="py-1.5 pl-4 pr-2">{c.lib}</td>
+                        <td className="py-1.5 pl-4 pr-2">{c.lib}{c.detail && <span className="block text-[10.5px] text-muted">{c.detail}</span>}</td>
                         <td className="py-1.5 pr-2 text-right font-mono tabular-nums">{fmtNum(c.montant, 0)}</td>
                         <td className="py-1.5 pr-4 text-right text-muted">
                           {sd.deboursesSec > 0 ? fmtNum((c.montant / sd.deboursesSec) * 100, 1) : '0,0'} %
@@ -310,8 +310,8 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
           ))}
         </div>
         <p className="text-[12px] text-muted mt-4">
-          Les clés de répartition matériaux / main d'œuvre / matériel sont des moyennes de marché
-          indicatives. Un bureau d'études peut les ajuster selon ses propres bordereaux.
+          Les répartitions génériques matériaux / main d'œuvre / matériel restent indicatives. La forme de dallage,
+          elle, utilise le calcul détaillé de ses composants et de leurs prix saisis.
         </p>
       </Card>
       </>)}
