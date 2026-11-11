@@ -78,7 +78,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
   const [ouvertMortier, setOuvertMortier] = useState(false)
 
   const setP = (k, v) => setParams({ ...params, [k]: v })
-  const formeDallage = { actif: false, surface: '', epaisseur: '', dosageKgM3: 350, sableM3ParM3: 1, eauCimentRatio: '', ...(params.formeDallage || {}) }
+  const formeDallage = { actif: false, surface: '', epaisseur: '', dosageKgM3: 350, sableM3ParM3: 1, eauCimentRatio: '', prixEauM3: '', ...(params.formeDallage || {}) }
   const iRdcForme = Math.max(0, levels.findIndex((lv) => lv?.rez))
   const surfaceRdcForme = parNiveau[iRdcForme]?.surfPlancher || 0
   const setFormeDallage = (k, v) => setParams({ ...params, formeDallage: { ...formeDallage, [k]: v } })
@@ -456,8 +456,9 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
           <div className="min-w-0"><Label>Ciment (kg/m³)</Label><NumIn value={formeDallage.dosageKgM3} onChange={(v) => setFormeDallage('dosageKgM3', v)} ph="350" /></div>
           <div className="min-w-0"><Label>Sable (m³/m³)</Label><NumIn value={formeDallage.sableM3ParM3} onChange={(v) => setFormeDallage('sableM3ParM3', v)} ph="1" /></div>
           <div className="min-w-0"><Label>Ratio eau/ciment (L/kg)</Label><NumIn value={formeDallage.eauCimentRatio} onChange={(v) => setFormeDallage('eauCimentRatio', v)} ph="à préciser" /></div>
+          <div className="min-w-0"><Label>Prix eau (FCFA/m³)</Label><NumIn value={formeDallage.prixEauM3} onChange={(v) => setFormeDallage('prixEauM3', v)} ph="à préciser ou 0" /></div>
         </div>}
-        {formeDallage.actif && <p className="mt-2 text-[11.5px] text-muted">Sans surface saisie, la surface nette du RDC est utilisée. Le prix au m³ est calculé automatiquement : ciment + sable + eau, selon les prix de l’onglet Prix. Renseignez le ratio eau/ciment et le prix de l’eau (mettez 0 si elle est sans coût).</p>}
+        {formeDallage.actif && <p className="mt-2 text-[11.5px] text-muted">Sans surface saisie, la surface nette du RDC est utilisée. Le prix au m³ est calculé automatiquement : ciment + sable selon l’onglet Prix, et eau selon le prix saisi ici. Renseignez le ratio eau/ciment et le prix de l’eau (0 si elle est sans coût).</p>}
       </Card>
 
       {/* ══ NIVEAUX ══ */}
