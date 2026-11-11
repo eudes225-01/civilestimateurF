@@ -78,7 +78,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
   const [ouvertMortier, setOuvertMortier] = useState(false)
 
   const setP = (k, v) => setParams({ ...params, [k]: v })
-  const formeDallage = { actif: false, surface: '', epaisseur: '', dosageKgM3: 350, sableM3ParM3: 1, eauCimentRatio: '', prixEauM3: '', ...(params.formeDallage || {}) }
+  const formeDallage = { actif: false, surface: '', epaisseur: '', eauCimentRatio: '', ...(params.formeDallage || {}) }
   const iRdcForme = Math.max(0, levels.findIndex((lv) => lv?.rez))
   const surfaceRdcForme = parNiveau[iRdcForme]?.surfPlancher || 0
   const setFormeDallage = (k, v) => setParams({ ...params, formeDallage: { ...formeDallage, [k]: v } })
@@ -445,20 +445,17 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
       {/* ══ FORME DE DALLAGE (poste indépendant, compté une seule fois au RDC) ══ */}
       <Card className="p-5">
         <SectionTitle>Forme de dallage au RDC</SectionTitle>
-        <p className="text-[12px] text-muted mb-3">Mortier de sable, ciment et eau, indépendant de la dalle béton. Ce poste est compté une seule fois au rez-de-chaussée.</p>
+        <p className="text-[12px] text-muted mb-3">Béton de propreté dosé à 150 kg/m³, indépendant de la dalle structurelle et compté une seule fois au rez-de-chaussée.</p>
         <label className="flex items-center gap-2 text-[13px]">
           <input type="checkbox" checked={!!formeDallage.actif} onChange={(e) => setFormeDallage('actif', e.target.checked)} className="w-3.5 h-3.5 accent-laterite" />
           Inclure la forme de dallage
         </label>
-        {formeDallage.actif && <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+        {formeDallage.actif && <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
           <div className="min-w-0"><Label>Surface (m²)</Label><NumIn value={formeDallage.surface} onChange={(v) => setFormeDallage('surface', v)} ph={`auto ${fmtNum(surfaceRdcForme, 2)} m²`} /></div>
           <div className="min-w-0"><Label>Épaisseur (m)</Label><NumIn value={formeDallage.epaisseur} onChange={(v) => setFormeDallage('epaisseur', v)} ph="ex. 0,10" /></div>
-          <div className="min-w-0"><Label>Ciment (kg/m³)</Label><NumIn value={formeDallage.dosageKgM3} onChange={(v) => setFormeDallage('dosageKgM3', v)} ph="350" /></div>
-          <div className="min-w-0"><Label>Sable (m³/m³)</Label><NumIn value={formeDallage.sableM3ParM3} onChange={(v) => setFormeDallage('sableM3ParM3', v)} ph="1" /></div>
           <div className="min-w-0"><Label>Ratio eau/ciment (L/kg)</Label><NumIn value={formeDallage.eauCimentRatio} onChange={(v) => setFormeDallage('eauCimentRatio', v)} ph="à préciser" /></div>
-          <div className="min-w-0"><Label>Prix eau (FCFA/m³)</Label><NumIn value={formeDallage.prixEauM3} onChange={(v) => setFormeDallage('prixEauM3', v)} ph="à préciser ou 0" /></div>
         </div>}
-        {formeDallage.actif && <p className="mt-2 text-[11.5px] text-muted">Sans surface saisie, la surface nette du RDC est utilisée. Le prix au m³ est calculé automatiquement : ciment + sable selon l’onglet Prix, et eau selon le prix saisi ici. Renseignez le ratio eau/ciment et le prix de l’eau (0 si elle est sans coût).</p>}
+        {formeDallage.actif && <p className="mt-2 text-[11.5px] text-muted">Dosage appliqué : 150 kg/m³; granulats selon le dosage B.P. (0,40 m³ de sable et 0,80 m³ de gravier par m³). Sans surface saisie, la surface nette du RDC est utilisée. Le DQE applique directement le PU du B.P. par m³ depuis l’onglet Prix. Le ratio eau/ciment sert uniquement à estimer l’eau dans les matériaux.</p>}
       </Card>
 
       {/* ══ NIVEAUX ══ */}

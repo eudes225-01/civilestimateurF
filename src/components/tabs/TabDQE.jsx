@@ -255,8 +255,7 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
           <Badge variant="ind">Déboursé sec × K = {params.K}</Badge>
         </div>
         <p className="text-[13px] text-muted mb-4">
-          Décomposition des prix avant application du coefficient de majoration K. Pour la forme de dallage,
-          le prix est calculé directement par la somme des quantités de ciment, sable et eau multipliées par leurs prix unitaires.
+          Décomposition des prix avant application du coefficient de majoration K. La forme de dallage reprend directement le PU du béton de propreté (B.P.) par m³.
         </p>
 
         <div className="grid gap-4">
@@ -310,8 +309,7 @@ export default function TabDQE({ totaux, prix, params, setParams, alertes = [], 
           ))}
         </div>
         <p className="text-[12px] text-muted mt-4">
-          Les répartitions génériques matériaux / main d'œuvre / matériel restent indicatives. La forme de dallage,
-          elle, utilise le calcul détaillé de ses composants et de leurs prix saisis.
+          Les répartitions génériques matériaux / main d'œuvre / matériel restent indicatives. Le prix de la forme de dallage utilise directement le PU du B.P. appliqué au volume calculé.
         </p>
       </Card>
       </>)}
