@@ -220,7 +220,8 @@ chaînages verticaux CV<n> ; consoles C<n> avec section comme une poutre.
 TRAME : axes en lettres (A, B, C…) et chiffres (1, 2, 3…), entraxes cotés (souvent 4,50 à 6,00 m) ; nœud = intersection (ex : B-3).
 Une longueur de poutre = entraxe entre appuis : si tu la déduis de la trame, confiance "basse".
 Poteau circulaire : forme "rond" et a = b = diamètre. Poteau carré / rectangulaire : forme "carre" ou "rect".
-Dalles : donne l'épaisseur, et la surface si elle est écrite, sinon les deux cotes L × l du panneau rectangulaire (jamais un produit calculé).
+Dalles et dallages : donne l'épaisseur, et la surface si elle est écrite, sinon les deux cotes L × l du panneau rectangulaire (jamais un produit calculé).
+Type : "dalleTP" UNIQUEMENT si le plan indique explicitement « dallage », « terre-plein », « sur sol » ou montre clairement une dalle portée par le sol ; "dallePleine" si dalle structurelle/suspendue ; null si le type n'est pas déterminable. Ne déduis pas le type de la seule épaisseur.
 Compte un poteau par repère (ex : 4 poteaux P1 de même section → nb 4).
 
 Schéma de réponse :
@@ -229,7 +230,7 @@ Schéma de réponse :
   "poteaux":  [ { "nom": "string|null (P1…)", "forme": "carre"|"rect"|"rond", "nb": number, "a": number|null, "b": number|null, "H": number|null, "confiance": "haute"|"basse" } ],
   "poutres":  [ { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ],
   "voiles":   [ { "nom": "string|null (V1…)", "nb": number, "L": number|null, "ep": number|null, "H": number|null, "confiance": "haute"|"basse" } ],
-  "dalles":   [ { "nom": "string|null (D1…)", "ep": number|null, "surface": number|null, "L": number|null, "l": number|null, "confiance": "haute"|"basse" } ],
+  "dalles":   [ { "nom": "string|null (D1…)", "type": "dallePleine"|"dalleTP"|null, "ep": number|null, "surface": number|null, "L": number|null, "l": number|null, "confiance": "haute"|"basse" } ],
   "longrines": [ { "nom": "string|null", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ],
   "chainagesV": [ { "nom": "string|null (CV1…)", "nb": number, "a": number|null, "b": number|null, "H": number|null, "confiance": "haute"|"basse" } ],
   "consoles": [ { "nom": "string|null (C1…)", "nb": number, "L": number|null, "b": number|null, "h": number|null, "confiance": "haute"|"basse" } ]

@@ -486,6 +486,9 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
               {['dalleTP', 'dallePleine', 'nervuree'].includes(lv.plancher) && (
                 <div className="min-w-0"><Label>Périmètre rives (m)</Label><NumIn value={lv.perimetre} onChange={(v) => upLevel(li, 'perimetre', v)} w="w-full sm:w-[96px]" ph="coffrage rives" /></div>
               )}
+              {['dalleTP', 'dallePleine'].includes(lv.plancher) && (
+                <div className="min-w-0"><Label>{lv.plancher === 'dalleTP' ? 'Épaisseur dallage (m)' : 'Épaisseur dalle (m)'}</Label><NumIn value={lv.epDalle} onChange={(v) => upLevel(li, 'epDalle', v)} w="w-full sm:w-[96px]" ph={lv.plancher === 'dalleTP' ? 'ex. 0,10' : 'ex. 0,15'} /></div>
+              )}
               {lv.plancher === 'nervuree' && (<>
                 <div className="min-w-0"><Label>Entraxe nervures (m)</Label><NumIn value={lv.nervures?.entraxe} onChange={(v) => upLevel(li, 'nervures', { ...(lv.nervures || {}), entraxe: v })} w="w-full sm:w-[90px]" /></div>
                 <div><Label>b × h nerv. (m)</Label><div className="flex gap-1">

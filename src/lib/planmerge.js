@@ -244,15 +244,17 @@ export function consolider(lectures = []) {
       const ok = cof.dalles.map((d) => ({ ...d, _s: surfDe(d) })).filter((d) => d._s > 0 && Number(d.ep) > 0)
       const surf = ok.reduce((x, d) => x + d._s, 0)
       if (ok.length && surf > 0) {
-        plancher = 'dallePleine'
+        const typesExplicites = new Set(ok.map((d) => d.type).filter((t) => t === 'dallePleine' || t === 'dalleTP'))
+        plancher = ok.every((d) => d.type === 'dalleTP') ? 'dalleTP' : 'dallePleine'
+        if (typesExplicites.size > 1) inc(`${lib} : dalle pleine et dallage détectés sur le même niveau — le type « dalle pleine » est retenu ; vérifiez et séparez les surfaces si nécessaire.`)
         // Épaisseur moyenne pondérée par la surface : le volume Σ(Sᵢ × epᵢ) est conservé.
         epDalle = Math.round((ok.reduce((x, d) => x + d._s * Number(d.ep), 0) / surf) * 1000) / 1000
         if (!(Number(surfPlancher) > 0)) surfPlancher = Math.round(surf * 100) / 100
         if (new Set(ok.map((d) => Number(d.ep))).size > 1) inc(`${lib} : dalles d'épaisseurs différentes — épaisseur moyenne pondérée retenue (${epDalle} m).`)
       }
     }
-    if (s.coupe && Number(s.coupe.epDalle) > 0 && plancher === 'dallePleine' && epDalle === undefined) epDalle = +s.coupe.epDalle
-    // Épaisseur de dalle lue sur l'IFC (utilisée seulement si le plancher est une dalle pleine).
+    if (s.coupe && Number(s.coupe.epDalle) > 0 && ['dallePleine', 'dalleTP'].includes(plancher) && epDalle === undefined) epDalle = +s.coupe.epDalle
+    // Épaisseur de dalle lue sur l'IFC (utilisée pour les dalles pleines et les dallages).
     if (epDalle === undefined && Number(plan.epDalle) > 0) epDalle = +plan.epDalle
 
     // HSP : la coupe fait foi.

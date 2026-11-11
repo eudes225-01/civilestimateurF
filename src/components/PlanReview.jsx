@@ -232,7 +232,7 @@ export default function PlanReview({ ex, setEx, onValider }) {
                   </Select>
                 </div>
               </Champ>
-              {n.plancher === 'dallePleine' && <Champ lab="Ép. dalle (m)"><Num value={n.epDalle} onChange={(v) => set(['niveaux', i, 'epDalle'], v)} w="w-[78px]" /></Champ>}
+              {['dallePleine', 'dalleTP'].includes(n.plancher) && <Champ lab={n.plancher === 'dalleTP' ? 'Ép. dallage (m)' : 'Ép. dalle (m)'}><Num value={n.epDalle} onChange={(v) => set(['niveaux', i, 'epDalle'], v)} w="w-[78px]" /></Champ>}
             </div>
             <Liste titre="Murs" rows={n.murs} cols={C.murs} path={['niveaux', i, 'murs']} {...L} />
             <Liste titre="Pièces" rows={n.pieces} cols={C.pieces} path={['niveaux', i, 'pieces']} {...L} />
