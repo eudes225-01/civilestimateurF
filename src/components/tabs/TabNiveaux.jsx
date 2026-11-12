@@ -455,7 +455,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
           <div className="min-w-0"><Label>Épaisseur (m)</Label><NumIn value={formeDallage.epaisseur} onChange={(v) => setFormeDallage('epaisseur', v)} ph="ex. 0,10" /></div>
           <div className="min-w-0"><Label>Ratio eau/ciment (L/kg)</Label><NumIn value={formeDallage.eauCimentRatio} onChange={(v) => setFormeDallage('eauCimentRatio', v)} ph="à préciser" /></div>
         </div>}
-        {formeDallage.actif && <p className="mt-2 text-[11.5px] text-muted">Dosage appliqué : 150 kg/m³; granulats selon le dosage B.P. (0,40 m³ de sable et 0,80 m³ de gravier par m³). Sans surface saisie, la surface nette du RDC est utilisée. Le DQE applique directement le PU du B.P. par m³ depuis l’onglet Prix. Le ratio eau/ciment sert uniquement à estimer l’eau dans les matériaux.</p>}
+        {formeDallage.actif && <p className="mt-2 text-[11.5px] text-muted">Dosage appliqué : 150 kg/m³; granulats selon le dosage B.P. (0,40 m³ de sable et 0,80 m³ de gravier par m³). Sans surface saisie, la surface nette du RDC est utilisée. Le prix par défaut de la forme reprend celui du B.P. (62 000 FCFA/m³) et apparaît séparément dans l’onglet Prix comme estimé, modifiable indépendamment du poste B.P. des fondations. Le ratio eau/ciment sert uniquement à estimer l’eau dans les matériaux.</p>}
       </Card>
 
       {/* ══ NIVEAUX ══ */}
