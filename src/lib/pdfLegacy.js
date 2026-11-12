@@ -77,6 +77,7 @@ export const METRES_COMPLETS = [
   ['volCV',          'BA chaînages verticaux',                     'm³'],
   ['volLinteaux',    'Linteaux BA (générés des ouvertures)',       'm³'],
   ['volDalle',       'Béton des planchers (tous types)',           'm³'],
+  ['volFormeDallage','Forme de dallage en béton (RDC)',            'm³'],
   ['surfHourdis',    'Planchers hourdis (surface)',                'm²'],
   ['entrevous',      'Entrevous (corps creux)',                    'u'],
   ['volBA',          'Volume de béton armé total',                 'm³'],
