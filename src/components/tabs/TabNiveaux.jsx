@@ -78,6 +78,9 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
   const [ouvertMortier, setOuvertMortier] = useState(false)
 
   const setP = (k, v) => setParams({ ...params, [k]: v })
+  const toiturePlan = params.plans?.toiture || {}
+  const toitureAParametres = [toiturePlan.surfaceProjetee, toiturePlan.L, toiturePlan.l, toiturePlan.pente]
+    .some((v) => Number(v) > 0) || (toiturePlan.pans || []).some((pan) => Number(pan.surface) > 0 || Number(pan.pente) > 0)
   const formeDallage = { actif: false, surface: '', epaisseur: '', eauCimentRatio: '', ...(params.formeDallage || {}) }
   const iRdcForme = Math.max(0, levels.findIndex((lv) => lv?.rez))
   const surfaceRdcForme = parNiveau[iRdcForme]?.surfPlancher || 0
@@ -221,7 +224,7 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
         {/* Pignons de toiture : triangles de maçonnerie sous toiture, ajoutés au métré des murs */}
         <Separator />
         <p className="text-[13px] font-semibold text-ink mb-1">Pignons (murs triangulaires sous toiture)</p>
-        <p className="text-[11.5px] text-muted mb-2">Sans saisie, les pignons ne sont pas inclus au métré (une alerte le signale). L1 = largeur horizontale d'un versant (m), P1 = pente du versant (tan α, ex. 0,5 ≈ 27°). Pignon à une seule pente : laisser L2 vide.</p>
+        <p className="text-[11.5px] text-muted mb-2">Avec un plan, saisissez les dimensions des pignons. Sans plan et avec une estimation de toiture à deux pans, ils sont calculés à partir de l’emprise et d’une pente de 30°. L1 = demi-portée horizontale (m), P1 = pente du versant (tan α, ex. 0,5 ≈ 27°). Pignon à une seule pente : laisser L2 vide.</p>
         <ListEditor
           items={params.plans?.toiture?.pignons || []}
           onChange={(l) => setP('plans', { ...(params.plans || {}), toiture: { ...(params.plans?.toiture || {}), pignons: l } })}
@@ -255,6 +258,27 @@ export default function TabNiveaux({ levels, setLevels, params, setParams, peutL
 
         {/* Toiture */}
         <Separator />
+        <Label>Présence de toiture</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+          {[
+            ['aucune', 'Pas de toiture', 'Le dernier plancher termine le bâtiment.'],
+            ['plan', 'Une toiture existe', 'Déposez son plan ou validez une estimation avant le PDF.'],
+            ['estimer', 'Estimer sans plan', 'Le type de couverture et les pignons seront estimés.'],
+          ].map(([key, titre, aide]) => {
+            const on = (params.toiturePresence || '') === key
+            return (
+              <button key={key} type="button" onClick={() => setP('toiturePresence', key)} aria-pressed={on}
+                className={`min-h-[72px] rounded-[11px] border-2 px-3 py-2.5 text-left transition-all ${on ? 'border-soleil bg-soleil-soft shadow-soft' : 'border-line bg-card hover:border-soleil/50'}`}>
+                <span className={`block text-[12.5px] font-semibold ${on ? 'text-soleil-deep' : 'text-ink'}`}>{titre}</span>
+                <span className="mt-1 block text-[11px] text-muted">{aide}</span>
+              </button>
+            )
+          })}
+        </div>
+        {!params.toiturePresence && <p className="mb-3 rounded-lg border border-soleil/30 bg-soleil-soft/40 px-3 py-2 text-[11.5px] text-soleil-deep">Sans choix, le dernier plancher est provisoirement traité comme toit-dalle. Confirmez « Pas de toiture » ou indiquez la toiture avant l’export.</p>}
+        {params.toiturePresence === 'plan' && !toitureAParametres && <p className="mb-3 rounded-lg border border-line bg-muted-bg px-3 py-2 text-[11.5px] text-muted">Vous pouvez déposer le plan dans « Projet », ou continuer avec une estimation depuis « Export PDF » en confirmant l’exception toiture.</p>}
+        {params.toiturePresence === 'aucune' && <div className="mb-3 max-w-[250px]"><Label>Hauteur des acrotères (m)</Label><NumIn value={params.acrotereHauteur ?? 0.4} onChange={(v) => setP('acrotereHauteur', v)} w="w-full" ph="0,40" /></div>}
+        <p className="mb-3 text-[11.5px] text-muted">Un seul type de plancher est chiffré au dernier niveau : dalle pleine ou plancher creux, selon votre sélection. Les deux ne sont jamais cumulés.</p>
         <Label>Type de toiture / couverture <span className="text-muted font-normal">(confronté au plan lu — alerte si contradiction)</span></Label>
         <div className="grid grid-cols-2 sm:grid-cols-4 auto-rows-fr items-stretch gap-2">
           {Object.entries(TOITURES).map(([key, t]) => {

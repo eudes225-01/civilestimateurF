@@ -6,6 +6,13 @@ import { api } from './api.js'
 import { fmtDate } from './format.js'
 import { METRES_COMPLETS } from './pdfLegacy.js'
 
+const libellePdf = (s) => String(s || '')
+  .replace(/Aciers HA\s*[—–-]\s*estimation par ratios \(ferraillage non détaillé\),?\s*tous éléments/i, 'Aciers HA')
+  .replace(/\s*\([^)]*(?:estim|estimation)[^)]*\)/gi, '')
+  .replace(/\s*[—–-]\s*[^,;]*(?:estim|estimation)[^,;]*/gi, '')
+  .replace(/\b(?:estimé|estimée|estimés|estimées|estimation)\b/gi, '')
+  .replace(/\s{2,}/g, ' ').trim()
+
 /** Modèle sérialisable du document (tout est déjà calculé : le serveur ne recalcule rien). */
 export function construireModele({ proj, totaux, brand, opts, dqe, materiaux }) {
   return {
@@ -15,14 +22,14 @@ export function construireModele({ proj, totaux, brand, opts, dqe, materiaux }) 
     },
     opts,
     dqe: {
-      lignes: dqe.lignes.map(({ n, des, u, q, pu, montant, detail }) => ({ n, des, u, q, pu, montant, detail })),
+      lignes: dqe.lignes.map(({ n, des, u, q, pu, montant, detail }) => ({ n, des: libellePdf(des), u, q, pu, montant, detail })),
       ht: dqe.ht, tva: dqe.tva, ttc: dqe.ttc,
       mode: dqe.mode,
     },
-    materiaux: (materiaux?.synthese || totaux.materiaux?.synthese || []).map(({ code, designation, unite, quantite, quantiteCommande, ouvrages }) => ({ code, designation, unite, quantite, quantiteCommande, ouvrages })),
+    materiaux: (materiaux?.synthese || totaux.materiaux?.synthese || []).map(({ code, designation, unite, quantite, quantiteCommande, ouvrages }) => ({ code, designation: libellePdf(designation), unite, quantite, quantiteCommande, ouvrages })),
     metres: METRES_COMPLETS
       .filter(([k]) => Math.round((+totaux[k] || 0) * 100) !== 0)
-      .map(([k, lib, u]) => ({ lib, q: +totaux[k], u })),
+      .map(([k, lib, u]) => ({ lib: libellePdf(lib), q: +totaux[k], u })),
     // Aucune déclaration (points à vérifier) dans le document remis au client : s'il y en a de bloquantes,
     // l'export est refusé en amont (TabExport) ; les autres se consultent dans l'onglet DQE.
     alertes: [],

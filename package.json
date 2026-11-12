@@ -12,7 +12,7 @@
   "dependencies": {
     "@emailjs/browser": "^4.3.3",
     "@supabase/supabase-js": "^2.45.0",
-    "civilestimateur-engine": "github:eudes225-01/civilestimateurB#v3.0.6",
+    "civilestimateur-engine": "github:eudes225-01/civilestimateurB#v3.0.8",
     "jspdf": "4.2.1",
     "jspdf-autotable": "5.0.9",
     "lucide-react": "^0.383.0",

@@ -75,6 +75,7 @@ export default function PlanAnalyzer({ proj, setProj, setLevels, setParams, couv
     setParams((p) => ({
       ...p,
       ...patchParams,
+      ...(patchParams.plans?.toiture ? { toiturePresence: 'plan' } : {}),
       fondation: patchParams.fondation ? { ...p.fondation, ...patchParams.fondation } : p.fondation,
       planFlags: { ...(p.planFlags || {}), ...(patchParams.planFlags || {}) },
       plans: { ...(p.plans || {}), ...(patchParams.plans || {}) },

@@ -31,7 +31,12 @@ const regrouperParChapitre = (lignes) => {
   }
   return [...groupes.values()].sort((a, b) => a.n - b.n)
 }
-const designationPdf = (s) => String(s || '').replace(/Aciers HA\s*[—–-]\s*estimation par ratios \(ferraillage non détaillé\),?\s*tous éléments/i, 'Aciers HA')
+const designationPdf = (s) => String(s || '')
+  .replace(/Aciers HA\s*[—–-]\s*estimation par ratios \(ferraillage non détaillé\),?\s*tous éléments/i, 'Aciers HA')
+  .replace(/\s*\([^)]*(?:estim|estimation)[^)]*\)/gi, '')
+  .replace(/\s*[—–-]\s*[^,;]*(?:estim|estimation)[^,;]*/gi, '')
+  .replace(/\b(?:estimé|estimée|estimés|estimées|estimation)\b/gi, '')
+  .replace(/\s{2,}/g, ' ').trim()
 
 // Éclaircit/fonce une couleur RGB d'un facteur (-1 à 1)
 const shade = ([r, g, b], f) => {
@@ -282,7 +287,7 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, materiau
       margin: { left: M, right: M, bottom: 18 },
       theme: 'grid',
       head: [['Matériau', 'Quantité', 'Unité', 'À commander']],
-      body: lignesMateriaux.map((x) => [x.designation, pdfNum(x.quantite, 2), x.unite, pdfNum(x.quantiteCommande ?? x.quantite, /^(sac|u|pce)$/.test(x.unite) ? 0 : 2)]),
+      body: lignesMateriaux.map((x) => [designationPdf(x.designation), pdfNum(x.quantite, 2), x.unite, pdfNum(x.quantiteCommande ?? x.quantite, /^(sac|u|pce)$/.test(x.unite) ? 0 : 2)]),
       styles: { fontSize: 8.5, cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 }, overflow: 'linebreak' },
       headStyles: { fillColor: [r, g, b], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: shade([r, g, b], 0.92) },
@@ -313,7 +318,7 @@ export async function exportPdfLegacy({ proj, totaux, brand, opts, dqe, materiau
       head: [['Désignation', 'Quantité', 'Unité']],
       body: METRES_COMPLETS
         .filter(([k]) => Math.round((+totaux[k] || 0) * 100) !== 0)
-        .map(([k, lab, u]) => [lab, pdfNum(totaux[k], 2), u]),
+        .map(([k, lab, u]) => [designationPdf(lab), pdfNum(totaux[k], 2), u]),
       styles: { fontSize: 8.5, cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 }, overflow: 'linebreak' },
       headStyles: { fillColor: [r, g, b], textColor: 255 },
       alternateRowStyles: { fillColor: shade([r, g, b], 0.92) },
